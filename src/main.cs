@@ -13,6 +13,7 @@ class App
 
 		World world = new();
 
+		//TODO: position to center
 		RigidBody circleBody = new(new Circle(10f), new Vector2(100, 100), invMass: 0.1f, restitution: 0.5f);
         world.Bodies.Add(circleBody);
 

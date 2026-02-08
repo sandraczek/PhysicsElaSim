@@ -15,7 +15,8 @@ namespace PhysicsElaSim.physics
         public static Vector2 operator -(Vector2 a, Vector2 b) => new(a.X - b.X, a.Y - b.Y);
         public static Vector2 operator *(Vector2 a, float d) => new(a.X * d, a.Y * d);
         public static Vector2 operator-(Vector2 v) => new(-v.X, -v.Y);
-        float Length() => (float)Math.Sqrt(X*X + Y*Y);
+        public float Length() => (float)Math.Sqrt((double)X*X + (double)Y*Y);
+        public float LengthSquared() => X*X + Y*Y;
         public Vector2 Normalized(){
             float len = Length();
             if(len == 0f) return Zero;
