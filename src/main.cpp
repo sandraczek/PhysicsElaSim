@@ -1,5 +1,5 @@
 #include <SFML/Graphics.hpp>
-#include "../physics/physics.hpp"
+#include "../physics/world.hpp"
 
 int main()
 {
