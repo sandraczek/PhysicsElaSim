@@ -1,6 +1,6 @@
 namespace PhysicsElaSim.physics
 {
-    class World 
+    public class World
     {
         public Vector2 GravityAcceleration;
         public List<RigidBody> Bodies;
@@ -10,24 +10,26 @@ namespace PhysicsElaSim.physics
             GravityAcceleration = gravity;
             Bodies = [];
         }
+
         public World()
         {
-            GravityAcceleration = new Vector2(0, 9.81f);
+            GravityAcceleration = Vector2.Zero;
             Bodies = [];
         }
 
-        public void Update(float dt) {
-            foreach (RigidBody body in Bodies) {
+        public void Update(float dt)
+        {
+            foreach (RigidBody body in Bodies)
+            {
                 body.Acceleration = Vector2.Zero;
                 body.Acceleration += GravityAcceleration;
-                
-                body.Velocity += body.Acceleration * dt;
-                
-                body.Pos += body.Velocity * dt;
-                
-                //resolve collisions
 
+                body.Velocity += body.Acceleration * dt;
+
+                body.Pos += body.Velocity * dt;
+
+                //resolve collisions
             }
-        }    //😎
+        } //😎
     }
 }

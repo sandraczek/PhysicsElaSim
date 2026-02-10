@@ -1,38 +1,40 @@
-using SFML.Graphics;
-using SFML.Window;
-using SFML.System;
 using PhysicsElaSim.physics;
+using SFML.Graphics;
+using SFML.System;
+using SFML.Window;
 
 class App
 {
-	static void Main(string[] args)
-	{
-		RenderWindow window  = new(new VideoMode(new Vector2u(800, 600)), "Physics Simulation");
+    static void Main(string[] args)
+    {
+        RenderWindow window = new(new VideoMode(new Vector2u(800, 600)), "Physics Simulation");
+        window.Closed += (sender, e) => window.Close();
+        Renderer renderer = new();
 
-		window.Closed += (sender, e) => window.Close();
+        World world = new(new Vector2(0, 9.81f));
 
-		World world = new();
-
-		//TODO: position to center
-		RigidBody circleBody = new(new Circle(10f), new Vector2(100, 100), invMass: 0.1f, restitution: 0.5f);
+        RigidBody circleBody = new(
+            new Circle(10f),
+            new Vector2(100, 100),
+            invMass: 0.1f,
+            restitution: 0.7f
+        );
         world.Bodies.Add(circleBody);
-
-        CircleShape shape = new(10.0f) { FillColor = Color.Red };
 
         Clock clock = new();
 
-		while (window.IsOpen)
-		{
-			float delatTime = clock.Restart().AsSeconds();
-			window.DispatchEvents();
+        while (window.IsOpen)
+        {
+            float delatTime = clock.Restart().AsSeconds();
+            world.Update(delatTime);
 
-			world.Update(delatTime);
+            window.DispatchEvents();
+            window.Clear(new Color(30, 30, 30));
 
-			shape.Position = new Vector2f(world.Bodies[0].Pos.X, world.Bodies[0].Pos.Y);
+            renderer.Render(window, world);
 
-			window.Clear();
-			window.Draw(shape);
-			window.Display();
-		}
-	}
+            window.Display();
+        }
+    }
 }
+
