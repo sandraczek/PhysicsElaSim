@@ -26,5 +26,10 @@ namespace PhysicsElaSim.physics
             Width = width;
             Height = height;
         }
+        public Rectangle(Vector2 size)
+        {
+            Width = size.X;
+            Height = size.Y;
+        }
     }
 }
