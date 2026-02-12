@@ -1,12 +1,13 @@
-using System.ComponentModel.DataAnnotations;
-using System.Data.Common;
-using System.Numerics;
+using System.Diagnostics;
+using System.Reflection;
+using System.Reflection.Emit;
 
 namespace PhysicsElaSim.physics
 {
     static class CollisionResolver
     {
-
+        private const float positionCorrectionPercent = 0.2f;
+        private const float positionCorrectionMin = 0.01f;
         public static Collision? CheckCollision(RigidBody a, RigidBody b)
         {
             if(a.IsStatic && b.IsStatic) return null;
@@ -66,16 +67,8 @@ namespace PhysicsElaSim.physics
             return new(A, B, normal, circleA.Radius - dist);
         }
 
-        private static Collision? RectVsCircle(RigidBody A, RigidBody B, Rectangle rectA, Circle circleB) {
-            return CircleVsRect(B, A, circleB, rectA);
-            // if (collision.HasValue)
-            // {
-            //     Collision c = collision.Value;
-            //     return new Collision(c.BodyB, c.BodyA, c.Normal, c.Depth);
-            // }
-            // return null;
-        }
-
+        private static Collision? RectVsCircle(RigidBody A, RigidBody B, Rectangle rectA, Circle circleB)
+            => CircleVsRect(B, A, circleB, rectA);
 
         private static Collision? RectVsRect(RigidBody A, RigidBody B, Rectangle rectA, Rectangle rectB)
         {
@@ -95,7 +88,7 @@ namespace PhysicsElaSim.physics
 
             if(dx1 < 0f || dx2 < 0f || dy1 < 0f || dy2 < 0f) return null;
             
-            float depth = Math.Min(Math.Min(dx1,dx2),Math.Min(dy1,dy2));
+            float depth = MathF.Min(MathF.Min(dx1,dx2),Math.Min(dy1,dy2));
             Vector2 normal = Vector2.Zero;
             if(depth == dx1)
             {
@@ -117,31 +110,50 @@ namespace PhysicsElaSim.physics
             return new(A,B,normal,depth);
         }
 
-        public static void ResolveCollision(Collision collision)
+        public static void ResolveVelocity(Collision collision)
         {   
             RigidBody bodyA = collision.BodyA;
             RigidBody bodyB = collision.BodyB;
             Vector2 n = collision.Normal;
+
+            float sumInvMass =  bodyA.InvMass + bodyB.InvMass;
+            if (sumInvMass == 0) return;
             
-            float e = Math.Min(bodyA.Restitution, bodyB.Restitution);
+            float restitition = MathF.Max(bodyA.Restitution, bodyB.Restitution);
 
-            Vector2 vAB = bodyA.Velocity - bodyB.Velocity;
-            float velAlongNormal = Vector2.Dot(vAB, n);
+            Vector2 vRel = bodyA.Velocity - bodyB.Velocity;
+            float velAlongNormal = Vector2.Dot(vRel, n);
 
-            //Console.WriteLine("A: " + bodyA.Id.ToString() + " B: " + bodyB.Id.ToString() + " normal: " + n.ToString() + " vAB: " + vAB.ToString() + " velAlongNormal: " + velAlongNormal +
-            // " Avel: " + bodyA.Velocity.ToString() + " Bvel: " + bodyB.Velocity.ToString());
-            if(velAlongNormal >0f) return;
+            if(velAlongNormal >=0f) return;
+            float normalImpulse = velAlongNormal * ( -(1f + restitition)) / (Vector2.Dot(n, n) * sumInvMass);
 
-            float j1 = Vector2.Dot(n, n) * (bodyA.InvMass + bodyB.InvMass);
-            if (j1 == 0) return;
-            float j = Vector2.Dot(n, vAB) * ( -(1f + e)) / j1;
+            bodyA.AddImpulse(n * normalImpulse);
+            bodyB.AddImpulse(-n * normalImpulse);
 
-            bodyA.AddImpulse(n * j);
-            bodyB.AddImpulse(-n * j);
+            // friction
+            Vector2 tangentVel = (vRel - n * Vector2.Dot(vRel,n)).Normalized();
+            float friction = MathF.Sqrt(bodyA.Friction*bodyB.Friction);
+            float frictionLimit = normalImpulse * friction;
+
+            float tangentImpulse = Math.Clamp(-Vector2.Dot(vRel, tangentVel) / sumInvMass, -frictionLimit, frictionLimit);
+
+            bodyA.AddImpulse(tangentVel * tangentImpulse);
+            bodyB.AddImpulse(-tangentVel * tangentImpulse);
+
         }   
+        public static void ResolvePosition(Collision collision)
+        {
+            RigidBody bodyA = collision.BodyA;
+            RigidBody bodyB = collision.BodyB;
 
-        //check collision -> body a, body b, vec normal, depth
-        //resolve collision -> pos, impulse 
-        //http://www.chrishecker.com/images/e/e7/Gdmphys3.pdf
-    }
+            float sumInvMass =  bodyA.InvMass + bodyB.InvMass;
+            if (sumInvMass == 0) return;
+
+            float correctionMagnitude = Math.Max(collision.Depth - positionCorrectionMin, 0.0f) / (bodyA.InvMass + bodyB.InvMass) * positionCorrectionPercent;
+            Vector2 correction = collision.Normal * correctionMagnitude;
+
+            bodyA.Pos += correction * bodyA.InvMass;
+            bodyB.Pos -= correction * bodyB.InvMass;
+        }
+    }   
 }

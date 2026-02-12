@@ -1,3 +1,4 @@
+using System.Reflection.Metadata;
 using PhysicsElaSim.physics;
 
 namespace PhysicsElaSim.src
@@ -6,7 +7,17 @@ using G = SFML.Graphics;
 using W = SFML.Window;
 using S = SFML.System;
 class App
-{
+{			/*--------------------------------------------
+				Instructions: 
+				use F for stationary ball
+				use AWSD for moving balls
+				G for a boring rectangle
+
+				friction feels strong, but thats only because of lack of rotations
+
+				you can set gravity to 0 in world.cs and play billard 😃
+			*/
+	private const float FixedDt = 1.0f / 60.0f;
 	static void Main(string[] args)
 	{
 		G.RenderWindow window  = new(new W.VideoMode(new S.Vector2u(735, 478)), "Physics Simulation", W.Styles.Default, W.State.Windowed);
@@ -20,11 +31,11 @@ class App
 		
 
 		float circleRadius1 = 10f;
-		RigidBody circleBody1 = new(new Circle(circleRadius1), new Vector2(100, 100), invMass: 0.1f, restitution: 0.9f);
+		RigidBody circleBody1 = new(new Circle(circleRadius1), new Vector2(100, 100), invMass: 0.1f, restitution: 0.9f, friction: 0.2f);
 		world.Bodies.Add(circleBody1.Id, circleBody1);
 
 		float circleRadius2 = 10f;
-		RigidBody circleBody2 = new(new Circle(circleRadius2), new Vector2(120, 80), invMass: 1f, restitution: 0.8f);
+		RigidBody circleBody2 = new(new Circle(circleRadius2), new Vector2(120, 80), invMass: 1f, restitution: 0.8f, friction: 0.15f);
 		world.Bodies.Add(circleBody2.Id, circleBody2);
 
 		float circleRadius3 = 20f;
@@ -35,7 +46,7 @@ class App
 		RigidBody rectBody1 = new(new Rectangle(rectSize1), new Vector2(120, 190), isStatic: true, invMass: 0f, restitution: 0.3f);
 		world.Bodies.Add(rectBody1.Id, rectBody1);
 		Vector2 floorSize = new(1000f,30f);
-		RigidBody floorBody = new(new Rectangle(floorSize), new Vector2(200, 200), isStatic: true, invMass: 0f, restitution: 0.4f);
+		RigidBody floorBody = new(new Rectangle(floorSize), new Vector2(200, 200), isStatic: true, invMass: 0f, restitution: 0.15f, 0.5f);
 		world.Bodies.Add(floorBody.Id, floorBody);
 
 		// TODO: rewrite this to the SpawnBall and SpawnRect methods (already implemented)
@@ -58,15 +69,24 @@ class App
 				shape.Origin = new S.Vector2f(rect.Size.X, rect.Size.Y) * 0.5f;
 		}
 
+		SpawnRect(new(40f,6f),new(600f,180f),new(209, 175, 54),true, 0, 1.2f,0f);
 
 		S.Clock clock = new();
+		float fixedDtAccumulator = 0f;
 
 		while (window.IsOpen)
 		{
-			float deltaTime = clock.Restart().AsSeconds();
 			window.DispatchEvents();
 
-			world.Update(deltaTime);
+			float deltaTime = clock.Restart().AsSeconds();
+			if(deltaTime > 0.25f) deltaTime = 0.25f;
+			fixedDtAccumulator += deltaTime;
+
+			while(fixedDtAccumulator >= FixedDt)
+			{
+				world.FixedUpdate(FixedDt);
+				fixedDtAccumulator -= FixedDt;
+			}
 
 			foreach ((int index, G.Shape shape) in Shapes) 				// is it better foreach shape or foreach body in Bodies? 
 			{															// one way to think is that this is a file for resolving shapes
@@ -79,60 +99,110 @@ class App
 			window.Clear(bgColor);
 
 
-			//List<G.Vertex> points = [];
-			foreach (G.Shape shape in Shapes.Values)
+			List<G.Vertex> centers = [];
+			foreach (G.Shape shape in Shapes.Values) 								// TODO: set a drawing priority
 			{
-				window.Draw(shape); 												// TODO: set a drawing priority
-				//points.Add(new(shape.Position, G.Color.Magenta));
-
-                    G.CircleShape center = new(0.5f) // Centers of Shapes. Unoptimal. Later - just uncomment the vertex list
-                    {
-                        Position = shape.Position,
-						Origin = new(0.5f,0.5f)
-                    };
-                    window.Draw(center);
+				window.Draw(shape);
+				centers.Add(new(shape.Position, G.Color.Black));
+				//												Centers of Shapes. For bigger - uncomment under
+				// G.CircleShape center = new(0.5f) 
+				// {
+				// 	Position = shape.Position,
+				// 	Origin = new(0.5f,0.5f)
+				// };
+				// window.Draw(center);
 
 			}
-			//window.Draw(points.ToArray(), 1,1, PrimitiveType.Points);
+			window.Draw(centers.ToArray(), G.PrimitiveType.Points);
 
 			window.Display();
 		}
 
-		 void OnKeyPressed(object? sender, W.KeyEventArgs e)
+		void OnKeyPressed(object? sender, W.KeyEventArgs e)
 		{
-			if (e.Code == W.Keyboard.Key.S)
+			float ballSpawnImpulse = 100f;
+			if (e.Code == W.Keyboard.Key.F)
 			{
 				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
-				SpawnBall(10f,MathP.ToP(worldMousePos), G.Color.Yellow);
+				SpawnBall(10f,MathP.ToP(worldMousePos), new(113, 201, 186));
 			}
+			if (e.Code == W.Keyboard.Key.G)
+			{
+				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
+				SpawnRect(new(12f,8f),MathP.ToP(worldMousePos), new(113, 173, 201));
+			}
+
 			if (e.Code == W.Keyboard.Key.D)
 			{
 				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
-				SpawnRect(new(12f,8f),MathP.ToP(worldMousePos), G.Color.Yellow);
+				var ball = SpawnBall(10f,MathP.ToP(worldMousePos), new(113, 201, 186));
+				ball.AddImpulse(Vector2.Right * ballSpawnImpulse);
+			}
+			if (e.Code == W.Keyboard.Key.A)
+			{
+				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
+				var ball = SpawnBall(10f,MathP.ToP(worldMousePos), new(113, 201, 186));
+				ball.AddImpulse(Vector2.Left * ballSpawnImpulse);
+			}
+			if (e.Code == W.Keyboard.Key.W)
+			{
+				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
+				var ball = SpawnBall(10f,MathP.ToP(worldMousePos), new(113, 201, 186));
+				ball.AddImpulse(Vector2.Up * ballSpawnImpulse);
+			}
+			if (e.Code == W.Keyboard.Key.S)
+			{
+				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
+				var ball = SpawnBall(10f,MathP.ToP(worldMousePos), new(113, 201, 186));
+				ball.AddImpulse(Vector2.Down * ballSpawnImpulse);
 			}
 		}
-		void SpawnBall(float radius, Vector2 position, G.Color color, bool isStatic = false, float invMass = 1f, float restitution = 0.5f)
+		RigidBody SpawnBall(
+			float radius, 
+			Vector2 position, 
+			G.Color color, 
+			bool isStatic = false,
+			float invMass = 1.0f, 
+			float restitution = 0.8f, 
+			float friction = 0.2f
+			)
 		{
-			RigidBody circleBody = new(new Circle(radius), position, isStatic, invMass, restitution);
+			RigidBody circleBody = new(new Circle(radius), position, isStatic, invMass, restitution, friction);
 			world.Bodies.Add(circleBody.Id, circleBody);
 
 			G.CircleShape circleShape = new(radius)
 			{
 				FillColor = color,
+				OutlineColor = G.Color.Black,
+				OutlineThickness = 1f,
 				Origin = new S.Vector2f(radius, radius)
 			};
 			Shapes.Add(circleBody.Id, circleShape);
+
+			return circleBody;
 		}
-		void SpawnRect(Vector2 size, Vector2 position, G.Color color, bool isStatic = false, float invMass = 1f, float restitution = 0.5f)
+		RigidBody SpawnRect(
+			Vector2 size, 
+			Vector2 position, 
+			G.Color color, 
+			bool isStatic = false,
+			float invMass = 1f, 
+			float restitution = 0.4f, 
+			float friction = 0.2f
+			)
 		{
-			RigidBody rectBody = new(new Rectangle(size), position, isStatic, invMass, restitution);
+			RigidBody rectBody = new(new Rectangle(size), position, isStatic, invMass, restitution, friction);
 			world.Bodies.Add(rectBody.Id, rectBody);
 			G.RectangleShape rectShape = new(MathP.ToSF(size))
 			{
 				FillColor = color,
+				OutlineColor = G.Color.Black,
+				OutlineThickness = 1f,
 				Origin = MathP.ToSF(size) * 0.5f
 			};
 			Shapes.Add(rectBody.Id, rectShape);
+
+			return rectBody;
 		}
 	}
 
