@@ -147,10 +147,15 @@ namespace PhysicsElaSim.physics
                 float minA,maxA,minB,maxB;
                 ProjectVertices(VerticesA, axis, out minA, out maxA);
                 ProjectVertices(VerticesB, axis, out minB, out maxB);
-                
-                if(maxB - minA < minOverlap) minOverlap = maxB - minA; normal = axis; isA = true;
-                if(maxA - minB < minOverlap) minOverlap = maxA - minB; normal = axis; isA = true;
-                if(minOverlap < 0f) return null;
+
+                float overlap = MathF.Min(maxB,maxA) - MathF.Max(minA,minB);
+                if(overlap < 0f) return null;
+                if(overlap < minOverlap)
+                {
+                    minOverlap = overlap;
+                    normal = axis;
+                    isA = true;
+                }
             }
             foreach (Vector2 axis in axesB)
             {
@@ -158,9 +163,14 @@ namespace PhysicsElaSim.physics
                 ProjectVertices(VerticesA, axis, out minA, out maxA);
                 ProjectVertices(VerticesB, axis, out minB, out maxB);
                 
-                if(maxB - minA < minOverlap) minOverlap = maxB - minA; normal = axis; isA = false;
-                if(maxA - minB < minOverlap) minOverlap = maxA - minB; normal = axis; isA = false;
-                if(minOverlap < 0f) return null;
+                float overlap = MathF.Min(maxB,maxA) - MathF.Max(minA,minB);
+                if(overlap < 0f) return null;
+                if(overlap < minOverlap)
+                {
+                    minOverlap = overlap;
+                    normal = axis;
+                    isA = false;
+                }
             }
 
             if(Vector2.Dot(B.Pos - A.Pos, normal) > 0f ) normal = -normal ; //setting sense
@@ -170,7 +180,11 @@ namespace PhysicsElaSim.physics
             foreach(Vector2 vertex in isA? VerticesB : VerticesA)
             {
                 float d = Vector2.Dot(vertex, isA? normal:-normal);
-                if(d > maxDepth) maxDepth = d; cp = vertex;
+                if(d > maxDepth)
+                {
+                    maxDepth = d;
+                    cp = vertex;
+                }
             }
             return new(A,B,normal, cp ,minOverlap);
         }
