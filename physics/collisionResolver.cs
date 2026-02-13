@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Numerics;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -17,7 +18,7 @@ namespace PhysicsElaSim.physics
                 (Circle cA, Circle cB) => CircleVsCircle(a, b, cA, cB),
                 (Circle cA, Rectangle rB) => CircleVsRect(a, b, cA, rB),
                 (Rectangle rA, Circle cB) => RectVsCircle(a, b, rA, cB),
-                (Rectangle rA, Rectangle rB) => RectVsRect(a, b, rA, rB),
+                (Rectangle rA, Rectangle rB) => SAT(a, b, rA, rB),
                 _ => null
             };
         }
@@ -28,49 +29,65 @@ namespace PhysicsElaSim.physics
             Vector2 normal = (A.Pos - B.Pos).Normalized();
             
             if (depth < 0) return null;
-            return new(A, B, normal, depth);
+            Vector2 contactPoint = A.Pos + normal * circleA.Radius;
+            return new(A, B, normal, contactPoint, depth);
         }
 
         private static Collision? CircleVsRect(RigidBody A, RigidBody B, Circle circleA, Rectangle rectB) {
-            Vector2 d = B.Pos - A.Pos;
+            //calculating circle's position relative to rectangle's orientation
+            Vector2 d = A.Pos - B.Pos;
+            Vector2 posRel = Vector2.Rotate(d, -B.Rotation);
+
+            //clamping in relative coordinates
             float halfW = rectB.Width * 0.5f;
             float halfH = rectB.Height * 0.5f;
+            Vector2 contactPointRel = new(Math.Clamp(posRel.X, -halfW, halfW), Math.Clamp(posRel.Y, -halfH, halfH));
+            Vector2 normalVecRel = posRel - contactPointRel;
 
-            Vector2 closestPoint = new(Math.Clamp(d.X, -halfW, halfW), Math.Clamp(d.Y, -halfH, halfH));
-            Vector2 normalVec = d - closestPoint;
-
-            float distSq = normalVec.LengthSquared();
-
-            bool isInside = false;
-            Vector2 closestSide;
-            if (distSq == 0) // circle center is inside the rectangle
+            float dist = normalVecRel.Length();
+            Vector2 normalRel;
+            //if the circle center is inside the rectangle we need to find the closest side to push it out
+            //bool isInside = dist == 0;
+            bool isInside = posRel.X > -halfW && posRel.X < halfW && posRel.Y > -halfH && posRel.Y < halfH;
+            if (isInside)
             {
-                isInside = true;
-                if (Math.Abs(d.X) / halfW > Math.Abs(d.Y) / halfH) 
+                float overlapX = halfW - MathF.Abs(posRel.X);
+                float overlapY = halfH - MathF.Abs(posRel.Y);
+
+                if (overlapX < overlapY) //left or right side is the closest
                 {
-                    closestSide = new(d.X > 0 ? halfW : -halfW, closestPoint.Y);
-                }
-                else
+                    normalRel = new(posRel.X > 0 ? 1 : -1, 0); //normal points from the side to the circle centre
+                    contactPointRel = new(posRel.X > 0 ? halfW : -halfW, posRel.Y);
+                    dist = overlapX;
+                }   
+                else //top or bottom side is the closest
                 {
-                    closestSide = new(closestPoint.X, d.Y > 0 ? halfH : -halfH);
+                    normalRel = new(0, posRel.Y > 0 ? 1 : -1);
+                    contactPointRel = new(posRel.X, posRel.Y > 0 ? halfH : -halfH);
+                    dist = overlapY;
                 }
-                normalVec = d - closestSide;
+            }
+            else
+            {
+                if (dist > circleA.Radius) return null;
+                normalRel = normalVecRel.Normalized();
             }
 
-            float dist = normalVec.Length();
 
-            if (dist > circleA.Radius && !isInside) return null;
+            //transforming back to normal world coordinates
+            Vector2 normal = Vector2.Rotate(normalRel, B.Rotation);
+            Vector2 contactPoint = Vector2.Rotate(contactPointRel, B.Rotation) + B.Pos;
 
-            Vector2 normal = normalVec.Normalized();
-            if (!isInside) normal = -normal;
+            float depth = isInside ? circleA.Radius + dist : circleA.Radius - dist;
 
-            return new(A, B, normal, circleA.Radius - dist);
+            Console.WriteLine("Circle Vs Rect: normal(" + normal.ToString() + ") contact point("+contactPoint.ToString()+"), depth(" + depth + ")");
+            return new(A, B, normal, contactPoint, depth);
         }
 
         private static Collision? RectVsCircle(RigidBody A, RigidBody B, Rectangle rectA, Circle circleB)
             => CircleVsRect(B, A, circleB, rectA);
 
-        private static Collision? RectVsRect(RigidBody A, RigidBody B, Rectangle rectA, Rectangle rectB)
+        private static Collision? AABB(RigidBody A, RigidBody B, Rectangle rectA, Rectangle rectB)
         {
             float leftA = A.Pos.X - rectA.Width * 0.5f;
             float rightA = A.Pos.X + rectA.Width * 0.5f;
@@ -106,39 +123,102 @@ namespace PhysicsElaSim.physics
             {
                 normal = Vector2.Down;
             }
+            return null;
+            //return new(A,B,normal,depth);
+        }
+        private static Collision? SAT(RigidBody A, RigidBody B, Rectangle rectA, Rectangle rectB)
+        {
+            List<Vector2> VerticesA = rectA.GetVertices(A.Pos,A.Rotation);
+            List<Vector2> VerticesB = rectB.GetVertices(B.Pos,B.Rotation);
+            
+            List<Vector2> axesA = [];
+            axesA.Add(new (MathF.Cos(A.Rotation), MathF.Sin(A.Rotation)));
+            axesA.Add(new (-MathF.Sin(A.Rotation), MathF.Cos(A.Rotation)));
+            List<Vector2> axesB = [];
+            axesB.Add(new (MathF.Cos(B.Rotation), MathF.Sin(B.Rotation)));
+            axesB.Add(new (-MathF.Sin(B.Rotation), MathF.Cos(B.Rotation)));
 
-            return new(A,B,normal,depth);
+            Vector2 normal = Vector2.Zero;
+            float minOverlap = float.MaxValue;
+            bool isA = true;
+
+            foreach (Vector2 axis in axesA)
+            {
+                float minA,maxA,minB,maxB;
+                ProjectVertices(VerticesA, axis, out minA, out maxA);
+                ProjectVertices(VerticesB, axis, out minB, out maxB);
+                
+                if(maxB - minA < minOverlap) minOverlap = maxB - minA; normal = axis; isA = true;
+                if(maxA - minB < minOverlap) minOverlap = maxA - minB; normal = axis; isA = true;
+                if(minOverlap < 0f) return null;
+            }
+            foreach (Vector2 axis in axesB)
+            {
+                float minA,maxA,minB,maxB;
+                ProjectVertices(VerticesA, axis, out minA, out maxA);
+                ProjectVertices(VerticesB, axis, out minB, out maxB);
+                
+                if(maxB - minA < minOverlap) minOverlap = maxB - minA; normal = axis; isA = false;
+                if(maxA - minB < minOverlap) minOverlap = maxA - minB; normal = axis; isA = false;
+                if(minOverlap < 0f) return null;
+            }
+
+            if(Vector2.Dot(B.Pos - A.Pos, normal) > 0f ) normal = -normal ; //setting sense
+
+            Vector2 cp = Vector2.Zero;
+            float maxDepth = float.MinValue;
+            foreach(Vector2 vertex in isA? VerticesB : VerticesA)
+            {
+                float d = Vector2.Dot(vertex, isA? normal:-normal);
+                if(d > maxDepth) maxDepth = d; cp = vertex;
+            }
+            return new(A,B,normal, cp ,minOverlap);
         }
 
         public static void ResolveVelocity(Collision collision)
         {   
+            
             RigidBody bodyA = collision.BodyA;
             RigidBody bodyB = collision.BodyB;
             Vector2 n = collision.Normal;
+            Vector2 p = collision.ContactPoint;
+
+            //if (MathF.Abs(n.LengthSquared() - 1f) < 0.0001f) throw new("Normal Should Be Normalized");
 
             float sumInvMass =  bodyA.InvMass + bodyB.InvMass;
             if (sumInvMass == 0) return;
             
-            float restitition = MathF.Max(bodyA.Restitution, bodyB.Restitution);
+            float restitution = MathF.Max(bodyA.Restitution, bodyB.Restitution);
 
-            Vector2 vRel = bodyA.Velocity - bodyB.Velocity;
+            Vector2 vRel = bodyA.GetPointVelocity(p) - bodyB.GetPointVelocity(p);
             float velAlongNormal = Vector2.Dot(vRel, n);
 
             if(velAlongNormal >=0f) return;
-            float normalImpulse = velAlongNormal * ( -(1f + restitition)) / (Vector2.Dot(n, n) * sumInvMass);
 
-            bodyA.AddImpulse(n * normalImpulse);
-            bodyB.AddImpulse(-n * normalImpulse);
+            float rani = Vector2.Cross(n,p - bodyA.Pos);
+            rani *= rani * bodyA.InvInertia;
+            float rbni = Vector2.Cross(n,p - bodyB.Pos);
+            rbni *= rbni * bodyB.InvInertia;
+
+            float normalImpulse = velAlongNormal * ( -(1f + restitution)) / (sumInvMass + rani + rbni);
+
+            bodyA.AddImpulse(n * normalImpulse, p);
+            bodyB.AddImpulse(-n * normalImpulse, p);
 
             // friction
-            Vector2 tangentVel = (vRel - n * Vector2.Dot(vRel,n)).Normalized();
-            float friction = MathF.Sqrt(bodyA.Friction*bodyB.Friction);
-            float frictionLimit = normalImpulse * friction;
+            // Vector2 tangentVel = (vRel - n * Vector2.Dot(vRel,n)).Normalized();
+            // float friction = MathF.Sqrt(bodyA.Friction*bodyB.Friction);
+            // float frictionLimit = normalImpulse * friction;
 
-            float tangentImpulse = Math.Clamp(-Vector2.Dot(vRel, tangentVel) / sumInvMass, -frictionLimit, frictionLimit);
+            // float rati = Vector2.Cross(tangentVel,p - bodyA.Pos);
+            // rati *= rati * bodyA.InvInertia;
+            // float rbti = Vector2.Cross(tangentVel,p - bodyB.Pos);
+            // rbti *= rbti * bodyB.InvInertia;
 
-            bodyA.AddImpulse(tangentVel * tangentImpulse);
-            bodyB.AddImpulse(-tangentVel * tangentImpulse);
+            // float tangentImpulse = Math.Clamp(-Vector2.Dot(vRel, tangentVel) / (sumInvMass + rati + rbti), -frictionLimit, frictionLimit);
+
+            // bodyA.AddImpulse(tangentVel * tangentImpulse, p);
+            // bodyB.AddImpulse(-tangentVel * tangentImpulse, p);
 
         }   
         public static void ResolvePosition(Collision collision)
@@ -149,11 +229,22 @@ namespace PhysicsElaSim.physics
             float sumInvMass =  bodyA.InvMass + bodyB.InvMass;
             if (sumInvMass == 0) return;
 
-            float correctionMagnitude = Math.Max(collision.Depth - positionCorrectionMin, 0.0f) / (bodyA.InvMass + bodyB.InvMass) * positionCorrectionPercent;
+            float correctionMagnitude = Math.Max(collision.Depth - positionCorrectionMin, 0.0f) / sumInvMass * positionCorrectionPercent;
             Vector2 correction = collision.Normal * correctionMagnitude;
 
             bodyA.Pos += correction * bodyA.InvMass;
             bodyB.Pos -= correction * bodyB.InvMass;
+        }
+        private static void ProjectVertices(List<Vector2> vertices, Vector2 normal, out float min, out float max)
+        {
+            min = float.MaxValue;
+            max = float.MinValue;
+            for (int i = 0; i < vertices.Count; i++)
+            {
+                float p = Vector2.Dot(normal, vertices[i]);
+                if(p > max) max = p;
+                if(p < min) min = p;
+            }
         }
     }   
 }

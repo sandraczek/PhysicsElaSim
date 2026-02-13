@@ -30,21 +30,22 @@ class App
 
 		
 
-		float circleRadius1 = 10f;
+		//float circleRadius1 = 10f;
+		float circleRadius1 = 50f;
 		RigidBody circleBody1 = new(new Circle(circleRadius1), new Vector2(100, 100), invMass: 0.1f, restitution: 0.9f, friction: 0.2f);
 		world.Bodies.Add(circleBody1.Id, circleBody1);
 
-		float circleRadius2 = 10f;
-		RigidBody circleBody2 = new(new Circle(circleRadius2), new Vector2(120, 80), invMass: 1f, restitution: 0.8f, friction: 0.15f);
-		world.Bodies.Add(circleBody2.Id, circleBody2);
+		// float circleRadius2 = 10f;
+		// RigidBody circleBody2 = new(new Circle(circleRadius2), new Vector2(120, 80), invMass: 1f, restitution: 0.8f, friction: 0.15f);
+		// world.Bodies.Add(circleBody2.Id, circleBody2);
 
-		float circleRadius3 = 20f;
-		RigidBody circleBody3 = new(new Circle(circleRadius3), new Vector2(90, 150), isStatic: true, invMass: 0f, restitution: 0.2f);
-		world.Bodies.Add(circleBody3.Id, circleBody3);
+		// float circleRadius3 = 20f;
+		// RigidBody circleBody3 = new(new Circle(circleRadius3), new Vector2(90, 150), isStatic: true, invMass: 0f, restitution: 0.2f);
+		// world.Bodies.Add(circleBody3.Id, circleBody3);
 
-		Vector2 rectSize1 = new(40f,8f);
-		RigidBody rectBody1 = new(new Rectangle(rectSize1), new Vector2(120, 190), isStatic: true, invMass: 0f, restitution: 0.3f);
-		world.Bodies.Add(rectBody1.Id, rectBody1);
+		// Vector2 rectSize1 = new(40f,8f);
+		// RigidBody rectBody1 = new(new Rectangle(rectSize1), new Vector2(120, 190), isStatic: true, invMass: 0f, restitution: 0.3f);
+		// world.Bodies.Add(rectBody1.Id, rectBody1);
 		Vector2 floorSize = new(1000f,30f);
 		RigidBody floorBody = new(new Rectangle(floorSize), new Vector2(200, 200), isStatic: true, invMass: 0f, restitution: 0.15f, 0.5f);
 		world.Bodies.Add(floorBody.Id, floorBody);
@@ -53,12 +54,12 @@ class App
 
 		G.CircleShape SFMLcircleShape1 = new(circleRadius1) { FillColor = G.Color.Red};
 		Shapes.Add(circleBody1.Id, SFMLcircleShape1);
-		G.CircleShape SFMLcircleShape2 = new(circleRadius2) { FillColor = G.Color.Blue };
-		Shapes.Add(circleBody2.Id, SFMLcircleShape2);
-		G.CircleShape SFMLcircleShape3 = new(circleRadius3) { FillColor = G.Color.Cyan };
-		Shapes.Add(circleBody3.Id, SFMLcircleShape3);
-		G.RectangleShape SFMLrectShape1 = new(MathP.ToSF(rectSize1)) { FillColor = G.Color.Green};
-		Shapes.Add(rectBody1.Id, SFMLrectShape1);
+		// G.CircleShape SFMLcircleShape2 = new(circleRadius2) { FillColor = G.Color.Blue };
+		// Shapes.Add(circleBody2.Id, SFMLcircleShape2);
+		// G.CircleShape SFMLcircleShape3 = new(circleRadius3) { FillColor = G.Color.Cyan };
+		// Shapes.Add(circleBody3.Id, SFMLcircleShape3);
+		// G.RectangleShape SFMLrectShape1 = new(MathP.ToSF(rectSize1)) { FillColor = G.Color.Green};
+		// Shapes.Add(rectBody1.Id, SFMLrectShape1);
 		G.RectangleShape SFMLfloorShape = new(MathP.ToSF(floorSize)) { FillColor = G.Color.White};
 		Shapes.Add(floorBody.Id, SFMLfloorShape);
 

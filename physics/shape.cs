@@ -41,5 +41,27 @@ namespace PhysicsElaSim.physics
         {
             return (1f / 12f) * mass * (Width * Width + Height * Height);
         }
+        public List<Vector2> GetVertices(Vector2 pos, float rotation)
+        {
+            List<Vector2> vertices = [];
+            vertices.Add(pos + new Vector2(
+                0.5f * Width * MathF.Cos(rotation) + 0.5f * Height * MathF.Sin(rotation),
+                0.5f * Width * MathF.Sin(rotation) - 0.5f * Height * MathF.Cos(rotation)
+                ));
+            vertices.Add(pos + new Vector2(
+                -0.5f * Width * MathF.Cos(rotation) + 0.5f * Height * MathF.Sin(rotation),
+                -0.5f * Width * MathF.Sin(rotation) - 0.5f * Height * MathF.Cos(rotation)
+                ));
+            vertices.Add(pos + new Vector2(
+                -0.5f * Width * MathF.Cos(rotation) - 0.5f * Height * MathF.Sin(rotation),
+                -0.5f * Width * MathF.Sin(rotation) + 0.5f * Height * MathF.Cos(rotation)
+                ));
+            vertices.Add(pos + new Vector2(
+                0.5f * Width * MathF.Cos(rotation) - 0.5f * Height * MathF.Sin(rotation),
+                0.5f * Width * MathF.Sin(rotation) + 0.5f * Height * MathF.Cos(rotation)
+                ));
+
+            return vertices;
+        }
     }
 }

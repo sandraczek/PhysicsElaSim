@@ -30,6 +30,12 @@ namespace PhysicsElaSim.physics
         }
         public static float Dot(Vector2 a, Vector2 b) => a.X * b.X + a.Y * b.Y;    
         public static float Cross(Vector2 a, Vector2 b) => a.X * b.Y - a.Y * b.X;
+        public static Vector2 Rotate(Vector2 v, float angle)
+        {
+            float cos = MathF.Cos(angle);
+            float sin = MathF.Sin(angle);
+            return new(v.X * cos - v.Y * sin, v.X * sin + v.Y * cos);
+        }
         static public float Distance(Vector2 A, Vector2 B) => (A - B).Length();
         public bool Equals(Vector2 other) => X == other.X && Y == other.Y;
         public override bool Equals(object? obj)

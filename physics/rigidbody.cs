@@ -82,7 +82,13 @@ namespace PhysicsElaSim.physics
             if(!IsAwake) Console.WriteLine("Waking up: " + Id);
             IsAwake = true;
         }
-
+        public Vector2 GetPointVelocity(Vector2 globalPointPos)
+        {
+            if(false) throw new(Id + ": Point " + globalPointPos.ToString() + " Out Of Bounds"); //TODO fix
+            Vector2 radius = globalPointPos - Pos;
+            Vector2 radiusRotated = new(-radius.Y, radius.X);
+            return Velocity + radiusRotated * AngularVelocity;
+        }
         /*
         M = N * len(R) * sin(ang(NR))
         M = N cross R
