@@ -11,9 +11,9 @@ namespace PhysicsElaSim.physics
         private readonly int _posCorrectionNum = 3;
         public Dictionary<int,RigidBody> Bodies;
         private List<Collision> collisions = [];
-        private float _sleepVelThresholdBias = 2f;
+        private readonly float _sleepVelThresholdBias = 2f;
         private float _sleepVelThreshold;
-        private float _wakeUpMult = 0.1f;
+        private readonly float _wakeUpMult = 0.1f;
 
         public World(Vector2 gravity)
         {
@@ -45,6 +45,8 @@ namespace PhysicsElaSim.physics
                 body.Acceleration += GravityAcceleration * _gravityMultiplier;
                 body.Velocity += body.Acceleration * dt;
                 body.Pos += body.Velocity * dt;
+
+                body.Rotation += body.AngularVelocity;
 
                 body.UpdateSleep(dt, _sleepVelThreshold);
             }

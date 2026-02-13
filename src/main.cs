@@ -88,9 +88,12 @@ class App
 				fixedDtAccumulator -= FixedDt;
 			}
 
-			foreach ((int index, G.Shape shape) in Shapes) 				// is it better foreach shape or foreach body in Bodies? 
-			{															// one way to think is that this is a file for resolving shapes
-				shape.Position = MathP.ToSF(world.Bodies[index].Pos); 	// the other is that each body has a sprite not the other way around
+			foreach ((int index, G.Shape shape) in Shapes)
+			{
+				RigidBody body = world.Bodies[index];
+				shape.Position = MathP.ToSF(body.Pos);
+				shape.Rotation = body.Rotation;
+				
 			}
 			
 
@@ -120,7 +123,7 @@ class App
 
 		void OnKeyPressed(object? sender, W.KeyEventArgs e)
 		{
-			float ballSpawnImpulse = 100f;
+			float spawnImpulse = 100f;
 			if (e.Code == W.Keyboard.Key.F)
 			{
 				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
@@ -136,25 +139,33 @@ class App
 			{
 				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
 				var ball = SpawnBall(10f,MathP.ToP(worldMousePos), new(113, 201, 186));
-				ball.AddImpulse(Vector2.Right * ballSpawnImpulse);
+				ball.AddImpulse(Vector2.Right * spawnImpulse);
 			}
 			if (e.Code == W.Keyboard.Key.A)
 			{
 				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
 				var ball = SpawnBall(10f,MathP.ToP(worldMousePos), new(113, 201, 186));
-				ball.AddImpulse(Vector2.Left * ballSpawnImpulse);
+				ball.AddImpulse(Vector2.Left * spawnImpulse);
 			}
 			if (e.Code == W.Keyboard.Key.W)
 			{
 				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
 				var ball = SpawnBall(10f,MathP.ToP(worldMousePos), new(113, 201, 186));
-				ball.AddImpulse(Vector2.Up * ballSpawnImpulse);
+				ball.AddImpulse(Vector2.Up * spawnImpulse);
 			}
 			if (e.Code == W.Keyboard.Key.S)
 			{
 				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
 				var ball = SpawnBall(10f,MathP.ToP(worldMousePos), new(113, 201, 186));
-				ball.AddImpulse(Vector2.Down * ballSpawnImpulse);
+				ball.AddImpulse(Vector2.Down * spawnImpulse);
+			}
+			if (e.Code == W.Keyboard.Key.X)
+			{
+				Vector2 size = new(120f,40f);
+				S.Vector2f SFworldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
+				Vector2 worldMousePos = MathP.ToP(SFworldMousePos);
+				var rect = SpawnRect(size,worldMousePos, new(113, 173, 201));
+				rect.AddImpulse(Vector2.Right * spawnImpulse + Vector2.Up * spawnImpulse, worldMousePos - size * 0.5f);
 			}
 		}
 		RigidBody SpawnBall(

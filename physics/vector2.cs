@@ -29,6 +29,7 @@ namespace PhysicsElaSim.physics
             return new(X/len,Y/len);
         }
         public static float Dot(Vector2 a, Vector2 b) => a.X * b.X + a.Y * b.Y;    
+        public static float Cross(Vector2 a, Vector2 b) => a.X * b.Y - a.Y * b.X;
         static public float Distance(Vector2 A, Vector2 B) => (A - B).Length();
         public bool Equals(Vector2 other) => X == other.X && Y == other.Y;
         public override bool Equals(object? obj)

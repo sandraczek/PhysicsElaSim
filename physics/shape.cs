@@ -1,9 +1,9 @@
 
 namespace PhysicsElaSim.physics
 {
-    public class Shape
+    abstract public class Shape
     {
-        
+        abstract public float GetInertia(float mass);
     }
 
     public class Circle : Shape 
@@ -13,6 +13,11 @@ namespace PhysicsElaSim.physics
         public Circle(float radius)
         {
             Radius = radius;
+        }
+
+        public override float GetInertia(float mass)
+        {
+            return 0.5f * mass * Radius * Radius;
         }
     }
 
@@ -30,6 +35,11 @@ namespace PhysicsElaSim.physics
         {
             Width = size.X;
             Height = size.Y;
+        }
+
+        public override float GetInertia(float mass)
+        {
+            return (1f / 12f) * mass * (Width * Width + Height * Height);
         }
     }
 }
