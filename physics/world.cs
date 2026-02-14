@@ -14,6 +14,7 @@ namespace PhysicsElaSim.physics
         private readonly float _sleepVelThresholdBias = 2f;
         private float _sleepVelThreshold;
         private readonly float _wakeUpMult = 0.1f;
+        private readonly float airResistance = 0.99f;
 
         public World(Vector2 gravity)
         {
@@ -46,7 +47,8 @@ namespace PhysicsElaSim.physics
                 body.Velocity += body.Acceleration * dt;
                 body.Pos += body.Velocity * dt;
 
-                body.Rotation += body.AngularVelocity;
+                body.AngularVelocity *=airResistance; // TODO - remove and add real air resistance
+                body.Rotation += body.AngularVelocity * dt;
 
                 body.UpdateSleep(dt, _sleepVelThreshold);
             }

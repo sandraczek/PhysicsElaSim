@@ -2,13 +2,15 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 namespace PhysicsElaSim.physics
 {
     static class CollisionResolver
     {
         private const float positionCorrectionPercent = 0.2f;
-        private const float positionCorrectionMin = 0.01f;
+        private const float positionCorrectionMin = 0.001f;
+        private const float satCPtolerance = 0.01f;
         public static Collision? CheckCollision(RigidBody a, RigidBody b)
         {
             if(a.IsStatic && b.IsStatic) return null;
@@ -175,18 +177,32 @@ namespace PhysicsElaSim.physics
 
             if(Vector2.Dot(B.Pos - A.Pos, normal) > 0f ) normal = -normal ; //setting sense
 
-            Vector2 cp = Vector2.Zero;
+            List<Vector2> cps = [];
             float maxDepth = float.MinValue;
             foreach(Vector2 vertex in isA? VerticesB : VerticesA)
             {
                 float d = Vector2.Dot(vertex, isA? normal:-normal);
-                if(d > maxDepth)
+                if(d > maxDepth + satCPtolerance)
                 {
                     maxDepth = d;
-                    cp = vertex;
+                    cps.Add(vertex);
+                }
+                else if(d > maxDepth)
+                {
+                    cps.Clear();
+                    maxDepth = d;
+                    cps.Add(vertex); 
                 }
             }
-            return new(A,B,normal, cp ,minOverlap);
+
+            Vector2 cpAverage = Vector2.Zero;
+            foreach(Vector2 cp in cps)
+            {
+                cpAverage+=cp;
+            }
+            cpAverage*= 1f/cps.Count;
+
+            return new(A,B,normal, cpAverage ,minOverlap);
         }
 
         public static void ResolveVelocity(Collision collision)
@@ -206,8 +222,9 @@ namespace PhysicsElaSim.physics
 
             Vector2 vRel = bodyA.GetPointVelocity(p) - bodyB.GetPointVelocity(p);
             float velAlongNormal = Vector2.Dot(vRel, n);
-
+            
             if(velAlongNormal >=0f) return;
+            if(velAlongNormal > -0f) restitution = 0f;
 
             float rani = Vector2.Cross(n,p - bodyA.Pos);
             rani *= rani * bodyA.InvInertia;
@@ -219,20 +236,20 @@ namespace PhysicsElaSim.physics
             bodyA.AddImpulse(n * normalImpulse, p);
             bodyB.AddImpulse(-n * normalImpulse, p);
 
-            // friction
-            // Vector2 tangentVel = (vRel - n * Vector2.Dot(vRel,n)).Normalized();
-            // float friction = MathF.Sqrt(bodyA.Friction*bodyB.Friction);
-            // float frictionLimit = normalImpulse * friction;
+            //friction
+            Vector2 tangentVel = (vRel - n * Vector2.Dot(vRel,n)).Normalized();
+            float friction = MathF.Sqrt(bodyA.Friction*bodyB.Friction);
+            float frictionLimit = normalImpulse * friction;
 
-            // float rati = Vector2.Cross(tangentVel,p - bodyA.Pos);
-            // rati *= rati * bodyA.InvInertia;
-            // float rbti = Vector2.Cross(tangentVel,p - bodyB.Pos);
-            // rbti *= rbti * bodyB.InvInertia;
+            float rati = Vector2.Cross(tangentVel,p - bodyA.Pos);
+            rati *= rati * bodyA.InvInertia;
+            float rbti = Vector2.Cross(tangentVel,p - bodyB.Pos);
+            rbti *= rbti * bodyB.InvInertia;
 
-            // float tangentImpulse = Math.Clamp(-Vector2.Dot(vRel, tangentVel) / (sumInvMass + rati + rbti), -frictionLimit, frictionLimit);
+            float tangentImpulse = Math.Clamp(-Vector2.Dot(vRel, tangentVel) / (sumInvMass + rati + rbti), -frictionLimit, frictionLimit);
 
-            // bodyA.AddImpulse(tangentVel * tangentImpulse, p);
-            // bodyB.AddImpulse(-tangentVel * tangentImpulse, p);
+            bodyA.AddImpulse(tangentVel * tangentImpulse, p);
+            bodyB.AddImpulse(-tangentVel * tangentImpulse, p);
 
         }   
         public static void ResolvePosition(Collision collision)

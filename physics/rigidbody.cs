@@ -9,7 +9,7 @@ namespace PhysicsElaSim.physics
         private static int nextId = 0;
         public Vector2 Pos;
         public float Rotation;
-        public Vector2 Velocity;
+        public Vector2 Velocity; // todo: add field Vertices (optimize)
         public float AngularVelocity;
         public Vector2 Acceleration;
         public float InvMass;
@@ -21,6 +21,7 @@ namespace PhysicsElaSim.physics
         public bool IsAwake = true;
         private float sleepTimer = 0f;
         private const float timeToSleep = 1f;
+        private const float sleepAngVelThreshold = 0.01f;
 
         public RigidBody(Shape shape, Vector2 pos, bool isStatic = false,float invMass = 1.0f, float restitution = 0.25f, float friction = 0.25f)
         {
@@ -39,7 +40,7 @@ namespace PhysicsElaSim.physics
             nextId++;
         }
 
-        public void AddImpulse(Vector2 impulse) {
+        public void AddCenterImpulse(Vector2 impulse) {
             if(IsStatic) return;
             if(impulse == Vector2.Zero) return;
             Velocity += impulse * InvMass;
@@ -57,16 +58,17 @@ namespace PhysicsElaSim.physics
             Console.WriteLine("Adding Impulse " + impulse.ToString() + " to Entity: " + Id.ToString());
         }
 
-        public void UpdateSleep(float dt, float sleepVelThreshold) // object go to sleep when inactive
+        public void UpdateSleep(float dt, float sleepVelThreshold)
         {
             if(IsStatic) return;
-            if (Velocity.LengthSquared() < sleepVelThreshold * sleepVelThreshold)
+            if (Velocity.LengthSquared() < sleepVelThreshold * sleepVelThreshold && AngularVelocity < sleepAngVelThreshold)
             {
                 sleepTimer+=dt;
                 if(sleepTimer >= timeToSleep)
                 {
                     IsAwake = false;
                     Velocity = Vector2.Zero;
+                    AngularVelocity = 0f;
                     Console.WriteLine("Going to sleep: " + Id);
                 }
             }
