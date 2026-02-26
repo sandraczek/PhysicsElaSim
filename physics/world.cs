@@ -10,7 +10,7 @@ namespace PhysicsElaSim.physics
         private readonly int _velCorrectionNum = 20;
         private readonly int _posCorrectionNum = 3;
         public Dictionary<int,RigidBody> Bodies;
-        private List<Collision> collisions = [];
+        private readonly List<Collision> collisions = [];
         private readonly float _sleepVelThresholdBias = 2f;
         private float _sleepVelThreshold;
         private readonly float _wakeUpMult = 0.1f;
@@ -64,7 +64,6 @@ namespace PhysicsElaSim.physics
 
                     Collision? coll = CollisionResolver.CheckCollision(body1, body2);
                     if(!coll.HasValue) continue;
-
                     collisions.Add(coll.Value);
                     
                     // handle waking up: this is a tradeof - saves computing power but sometimes velocity is not enough to wake up a ball
@@ -87,14 +86,18 @@ namespace PhysicsElaSim.physics
                 if(i%2 == 0){
                     for (int j = 0;j<collisions.Count;j++)
                     {
-                        CollisionResolver.ResolveVelocity(collisions[j]);
+                        for (int k = 0; k < collisions[j].ContactPoints.Length; k++){
+                            CollisionResolver.ResolveVelocity(collisions[j], k);
+                        }
                     }
                 }
                 else            // were doing forwards -> backwards -> forwards ->.. , it fixes chain ball collisions
                 {
                     for (int j = collisions.Count -1 ;j>=0;j--)
                     {
-                        CollisionResolver.ResolveVelocity(collisions[j]);
+                        for (int k = 0; k < collisions[j].ContactPoints.Length; k++){
+                            CollisionResolver.ResolveVelocity(collisions[j], k);
+                        }
                     }
                 }
             }
@@ -105,7 +108,9 @@ namespace PhysicsElaSim.physics
                     Collision? trueColl = CollisionResolver.CheckCollision(coll.BodyA,coll.BodyB); // checking again
                     if(!trueColl.HasValue) continue;
 
-                    CollisionResolver.ResolvePosition(trueColl.Value);
+                    for (int k = 0; k < trueColl.Value.ContactPoints.Length; k++){
+                        CollisionResolver.ResolvePosition(trueColl.Value, k);
+                    }
                 }
             }
         }

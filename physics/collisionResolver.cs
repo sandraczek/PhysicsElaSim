@@ -10,7 +10,7 @@ namespace PhysicsElaSim.physics
     {
         private const float positionCorrectionPercent = 0.2f;
         private const float positionCorrectionMin = 0.001f;
-        private const float satCPtolerance = 0.01f;
+        private const float contactPointTolerance = 0.001f;
         public static Collision? CheckCollision(RigidBody a, RigidBody b)
         {
             if(a.IsStatic && b.IsStatic) return null;
@@ -20,7 +20,7 @@ namespace PhysicsElaSim.physics
                 (Circle cA, Circle cB) => CircleVsCircle(a, b, cA, cB),
                 (Circle cA, Rectangle rB) => CircleVsRect(a, b, cA, rB),
                 (Rectangle rA, Circle cB) => RectVsCircle(a, b, rA, cB),
-                (Rectangle rA, Rectangle rB) => SAT(a, b, rA, rB),
+                (Rectangle rA, Rectangle rB) => RectVsRect(a, b, rA, rB),
                 _ => null
             };
         }
@@ -32,7 +32,7 @@ namespace PhysicsElaSim.physics
             
             if (depth < 0) return null;
             Vector2 contactPoint = A.Pos + normal * circleA.Radius;
-            return new(A, B, normal, contactPoint, depth);
+            return new(A, B, normal, [contactPoint], [depth]);
         }
 
         private static Collision? CircleVsRect(RigidBody A, RigidBody B, Circle circleA, Rectangle rectB) {
@@ -83,72 +83,31 @@ namespace PhysicsElaSim.physics
             float depth = isInside ? circleA.Radius + dist : circleA.Radius - dist;
 
             Console.WriteLine("Circle Vs Rect: normal(" + normal.ToString() + ") contact point("+contactPoint.ToString()+"), depth(" + depth + ")");
-            return new(A, B, normal, contactPoint, depth);
+            return new(A, B, normal, [contactPoint], [depth]);
         }
 
         private static Collision? RectVsCircle(RigidBody A, RigidBody B, Rectangle rectA, Circle circleB)
             => CircleVsRect(B, A, circleB, rectA);
 
-        private static Collision? AABB(RigidBody A, RigidBody B, Rectangle rectA, Rectangle rectB)
-        {
-            float leftA = A.Pos.X - rectA.Width * 0.5f;
-            float rightA = A.Pos.X + rectA.Width * 0.5f;
-            float leftB = B.Pos.X - rectB.Width * 0.5f;
-            float rightB = B.Pos.X + rectB.Width * 0.5f;
-            float upA = A.Pos.Y - rectA.Height * 0.5f;
-            float downA = A.Pos.Y + rectA.Height * 0.5f;
-            float upB = B.Pos.Y - rectB.Height * 0.5f;
-            float downB = B.Pos.Y + rectB.Height * 0.5f;
 
-            float dx1 = rightB - leftA;
-            float dx2 = rightA - leftB;
-            float dy1 = downA - upB;
-            float dy2 = downB - upA;
-
-            if(dx1 < 0f || dx2 < 0f || dy1 < 0f || dy2 < 0f) return null;
-            
-            float depth = MathF.Min(MathF.Min(dx1,dx2),Math.Min(dy1,dy2));
-            Vector2 normal = Vector2.Zero;
-            if(depth == dx1)
-            {
-                normal = Vector2.Right;
-            }
-            else if(depth == dx2)
-            {
-                normal = Vector2.Left;
-            }
-            else if(depth == dy1)
-            {
-                normal = Vector2.Up;
-            }
-            else if(depth == dy2)
-            {
-                normal = Vector2.Down;
-            }
-            return null;
-            //return new(A,B,normal,depth);
-        }
-        private static Collision? SAT(RigidBody A, RigidBody B, Rectangle rectA, Rectangle rectB)
+        private static Collision? RectVsRect(RigidBody A, RigidBody B, Rectangle rectA, Rectangle rectB)
         {
             List<Vector2> VerticesA = rectA.GetVertices(A.Pos,A.Rotation);
             List<Vector2> VerticesB = rectB.GetVertices(B.Pos,B.Rotation);
             
-            List<Vector2> axesA = [];
-            axesA.Add(new (MathF.Cos(A.Rotation), MathF.Sin(A.Rotation)));
-            axesA.Add(new (-MathF.Sin(A.Rotation), MathF.Cos(A.Rotation)));
-            List<Vector2> axesB = [];
-            axesB.Add(new (MathF.Cos(B.Rotation), MathF.Sin(B.Rotation)));
-            axesB.Add(new (-MathF.Sin(B.Rotation), MathF.Cos(B.Rotation)));
+            List<Vector2> axes = [];
+            axes.Add(new (MathF.Cos(A.Rotation), MathF.Sin(A.Rotation)));
+            axes.Add(new (-MathF.Sin(A.Rotation), MathF.Cos(A.Rotation)));
+            axes.Add(new (MathF.Cos(B.Rotation), MathF.Sin(B.Rotation)));
+            axes.Add(new (-MathF.Sin(B.Rotation), MathF.Cos(B.Rotation)));
 
             Vector2 normal = Vector2.Zero;
             float minOverlap = float.MaxValue;
-            bool isA = true;
 
-            foreach (Vector2 axis in axesA)
+            foreach (Vector2 axis in axes)
             {
-                float minA,maxA,minB,maxB;
-                ProjectVertices(VerticesA, axis, out minA, out maxA);
-                ProjectVertices(VerticesB, axis, out minB, out maxB);
+                ProjectVertices(VerticesA, axis, out float minA, out float maxA);
+                ProjectVertices(VerticesB, axis, out float minB, out float maxB);
 
                 float overlap = MathF.Min(maxB,maxA) - MathF.Max(minA,minB);
                 if(overlap < 0f) return null;
@@ -156,62 +115,74 @@ namespace PhysicsElaSim.physics
                 {
                     minOverlap = overlap;
                     normal = axis;
-                    isA = true;
-                }
-            }
-            foreach (Vector2 axis in axesB)
-            {
-                float minA,maxA,minB,maxB;
-                ProjectVertices(VerticesA, axis, out minA, out maxA);
-                ProjectVertices(VerticesB, axis, out minB, out maxB);
-                
-                float overlap = MathF.Min(maxB,maxA) - MathF.Max(minA,minB);
-                if(overlap < 0f) return null;
-                if(overlap < minOverlap)
-                {
-                    minOverlap = overlap;
-                    normal = axis;
-                    isA = false;
                 }
             }
 
             if(Vector2.Dot(B.Pos - A.Pos, normal) > 0f ) normal = -normal ; //setting sense
+            
 
-            List<Vector2> cps = [];
-            float maxDepth = float.MinValue;
-            foreach(Vector2 vertex in isA? VerticesB : VerticesA)
-            {
-                float d = Vector2.Dot(vertex, isA? normal:-normal);
-                if(d > maxDepth + satCPtolerance)
-                {
-                    maxDepth = d;
-                    cps.Add(vertex);
-                }
-                else if(d > maxDepth)
-                {
-                    cps.Clear();
-                    maxDepth = d;
-                    cps.Add(vertex); 
-                }
-            }
+            int refIndex = FindMostParallelFaceIndex(normal,VerticesB);
+            int incIndex = FindMostParallelFaceIndex(-normal, VerticesA);
 
-            Vector2 cpAverage = Vector2.Zero;
-            foreach(Vector2 cp in cps)
-            {
-                cpAverage+=cp;
-            }
-            cpAverage*= 1f/cps.Count;
+            Vector2 refV1 = VerticesB[refIndex];
+            Vector2 refV2 = VerticesB[(refIndex + 1) % VerticesB.Count];
+            Vector2 refTangent = (refV2 - refV1).Normalized();
 
-            return new(A,B,normal, cpAverage ,minOverlap);
+            Vector2 incV1 = VerticesA[incIndex];
+            Vector2 incV2 = VerticesA[(incIndex + 1) % VerticesA.Count];
+
+            Clip(refV1, refTangent, ref incV1, ref incV2);
+            Clip(refV2, -refTangent, ref incV1, ref incV2);
+
+            float d1 = Vector2.Dot(refV1 - incV1, normal);
+            float d2 = Vector2.Dot(refV1 - incV2, normal);
+            
+            if(d1 < contactPointTolerance) return new(A,B,normal, [incV2], [d2]);
+            else if(d2 < contactPointTolerance) return new(A,B,normal, [incV1], [d1]);
+            else return new(A,B,normal, [incV1, incV2], [d1, d2]);
         }
 
-        public static void ResolveVelocity(Collision collision)
+        private static int FindMostParallelFaceIndex(Vector2 normal, List<Vector2> vertices)
+        { // return index of first vertex of the face. For second vertex use +1 and modulo
+            float maxDot = 0f;
+            int index = 0;
+            for (int i = 0;i< vertices.Count; i++)
+            {
+                int j = (i + 1) % vertices.Count;
+                Vector2 faceNormal = (vertices[i] - vertices[j]).Rotated90(); //TODO: check if normal is pointing outwards
+                float dot = Vector2.Dot(faceNormal, normal);
+                if(dot < maxDot)
+                {
+                    maxDot = dot;
+                    index = i;
+                }
+            }
+            return index;
+        }
+
+        private static void Clip(Vector2 wallPoint, Vector2 wallNormal, ref Vector2 v1, ref Vector2 v2)
+        {
+            float d1 = Vector2.Dot(v1 - wallPoint, wallNormal);
+            float d2 = Vector2.Dot(v2 - wallPoint, wallNormal);
+            if (d1 >= 0 && d2 < 0) //v1 inside v2 outside 
+            {
+                float t = d1 / (d1 - d2);
+                v2 = v1 + (v2 - v1) * t;
+            }
+            else if (d1 < 0 && d2 >= 0) //v1 outside v2 inside
+            {
+                float t = d2 / (d2 - d1);
+                v1 = v2 + (v1 - v2) * t;
+            }
+        }
+
+        public static void ResolveVelocity(Collision collision, int poi)
         {   
             
             RigidBody bodyA = collision.BodyA;
             RigidBody bodyB = collision.BodyB;
             Vector2 n = collision.Normal;
-            Vector2 p = collision.ContactPoint;
+            Vector2 p = collision.ContactPoints[poi];
 
             //if (MathF.Abs(n.LengthSquared() - 1f) < 0.0001f) throw new("Normal Should Be Normalized");
 
@@ -252,7 +223,7 @@ namespace PhysicsElaSim.physics
             bodyB.AddImpulse(-tangentVel * tangentImpulse, p);
 
         }   
-        public static void ResolvePosition(Collision collision)
+        public static void ResolvePosition(Collision collision, int poi)
         {
             RigidBody bodyA = collision.BodyA;
             RigidBody bodyB = collision.BodyB;
@@ -260,7 +231,7 @@ namespace PhysicsElaSim.physics
             float sumInvMass =  bodyA.InvMass + bodyB.InvMass;
             if (sumInvMass == 0) return;
 
-            float correctionMagnitude = Math.Max(collision.Depth - positionCorrectionMin, 0.0f) / sumInvMass * positionCorrectionPercent;
+            float correctionMagnitude = Math.Max(collision.Depths[poi] - positionCorrectionMin, 0.0f) / sumInvMass * positionCorrectionPercent;
             Vector2 correction = collision.Normal * correctionMagnitude;
 
             bodyA.Pos += correction * bodyA.InvMass;

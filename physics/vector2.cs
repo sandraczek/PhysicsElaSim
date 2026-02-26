@@ -36,6 +36,10 @@ namespace PhysicsElaSim.physics
             float sin = MathF.Sin(angle);
             return new(v.X * cos - v.Y * sin, v.X * sin + v.Y * cos);
         }
+        public Vector2 Rotated90()
+        {
+            return new(-Y, X);
+        }
         static public float Distance(Vector2 A, Vector2 B) => (A - B).Length();
         public bool Equals(Vector2 other) => X == other.X && Y == other.Y;
         public override bool Equals(object? obj)
