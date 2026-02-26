@@ -95,16 +95,18 @@ namespace PhysicsElaSim.physics
             List<Vector2> VerticesA = rectA.GetVertices(A.Pos,A.Rotation);
             List<Vector2> VerticesB = rectB.GetVertices(B.Pos,B.Rotation);
             
-            List<Vector2> axes = [];
-            axes.Add(new (MathF.Cos(A.Rotation), MathF.Sin(A.Rotation)));
-            axes.Add(new (-MathF.Sin(A.Rotation), MathF.Cos(A.Rotation)));
-            axes.Add(new (MathF.Cos(B.Rotation), MathF.Sin(B.Rotation)));
-            axes.Add(new (-MathF.Sin(B.Rotation), MathF.Cos(B.Rotation)));
+            List<Vector2> axesA = [];
+            axesA.Add(new (MathF.Cos(A.Rotation), MathF.Sin(A.Rotation)));
+            axesA.Add(new (-MathF.Sin(A.Rotation), MathF.Cos(A.Rotation)));
+            List<Vector2> axesB = [];
+            axesB.Add(new (MathF.Cos(B.Rotation), MathF.Sin(B.Rotation)));
+            axesB.Add(new (-MathF.Sin(B.Rotation), MathF.Cos(B.Rotation)));
 
             Vector2 normal = Vector2.Zero;
             float minOverlap = float.MaxValue;
+            bool isA = true;
 
-            foreach (Vector2 axis in axes)
+            foreach (Vector2 axis in axesA)
             {
                 ProjectVertices(VerticesA, axis, out float minA, out float maxA);
                 ProjectVertices(VerticesB, axis, out float minB, out float maxB);
@@ -115,21 +117,38 @@ namespace PhysicsElaSim.physics
                 {
                     minOverlap = overlap;
                     normal = axis;
+                    isA = true;
+                }
+            }
+            foreach (Vector2 axis in axesB)
+            {
+                ProjectVertices(VerticesA, axis, out float minA, out float maxA);
+                ProjectVertices(VerticesB, axis, out float minB, out float maxB);
+
+                float overlap = MathF.Min(maxB,maxA) - MathF.Max(minA,minB);
+                if(overlap < 0f) return null;
+                if(overlap < minOverlap)
+                {
+                    minOverlap = overlap;
+                    normal = axis;
+                    isA = false;
                 }
             }
 
-            if(Vector2.Dot(B.Pos - A.Pos, normal) > 0f ) normal = -normal ; //setting sense
+            if((Vector2.Dot(B.Pos - A.Pos, normal) > 0f) ^ isA) normal = -normal ; //setting sense
             
+            List<Vector2> refVertices = isA ? VerticesA : VerticesB;
+            List<Vector2> incVertices = isA ? VerticesB : VerticesA;
 
-            int refIndex = FindMostParallelFaceIndex(normal,VerticesB);
-            int incIndex = FindMostParallelFaceIndex(-normal, VerticesA);
+            int refIndex = FindMostParallelFaceIndex(normal,refVertices);
+            int incIndex = FindMostParallelFaceIndex(-normal, incVertices);
 
-            Vector2 refV1 = VerticesB[refIndex];
-            Vector2 refV2 = VerticesB[(refIndex + 1) % VerticesB.Count];
+            Vector2 refV1 = refVertices[refIndex];
+            Vector2 refV2 = refVertices[(refIndex + 1) % refVertices.Count];
             Vector2 refTangent = (refV2 - refV1).Normalized();
 
-            Vector2 incV1 = VerticesA[incIndex];
-            Vector2 incV2 = VerticesA[(incIndex + 1) % VerticesA.Count];
+            Vector2 incV1 = incVertices[incIndex];
+            Vector2 incV2 = incVertices[(incIndex + 1) % incVertices.Count];
 
             Clip(refV1, refTangent, ref incV1, ref incV2);
             Clip(refV2, -refTangent, ref incV1, ref incV2);
@@ -137,9 +156,9 @@ namespace PhysicsElaSim.physics
             float d1 = Vector2.Dot(refV1 - incV1, normal);
             float d2 = Vector2.Dot(refV1 - incV2, normal);
             
-            if(d1 < contactPointTolerance) return new(A,B,normal, [incV2], [d2]);
-            else if(d2 < contactPointTolerance) return new(A,B,normal, [incV1], [d1]);
-            else return new(A,B,normal, [incV1, incV2], [d1, d2]);
+            if(d1 < contactPointTolerance) return new(A,B,isA? -normal:normal, [incV2], [d2]);
+            else if(d2 < contactPointTolerance) return new(A,B,isA? -normal:normal, [incV1], [d1]);
+            else return new(A,B,isA? -normal:normal, [incV1, incV2], [d1, d2]);
         }
 
         private static int FindMostParallelFaceIndex(Vector2 normal, List<Vector2> vertices)
