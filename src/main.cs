@@ -7,20 +7,11 @@ using G = SFML.Graphics;
 using W = SFML.Window;
 using S = SFML.System;
 class App
-{			/*--------------------------------------------
-				Instructions: 
-				use F for stationary ball
-				use AWSD for moving balls
-				G for a boring rectangle
-
-				friction feels strong, but thats only because of lack of rotations
-
-				you can set gravity to 0 in world.cs and play billard 😃
-			*/
+{
 	private const float FixedDt = 1.0f / 60.0f;
 	private static G.Color bgColor = new(100,100,100);
-	private static bool showCenters = false;
-	private static bool showCorners = true;
+	private static readonly bool showCenters = false;
+	private static readonly bool showCorners = true;
 	static void Main(string[] args)
 	{
 		G.RenderWindow window  = new(new W.VideoMode(new S.Vector2u(735, 478)), "Physics Simulation", W.Styles.Default, W.State.Windowed, new()
@@ -157,7 +148,7 @@ class App
 			bool isStatic = false,
 			float invMass = 1f, 
 			float restitution = 0.2f, 
-			float friction = 0.2f
+			float friction = 0.4f
 			)
 		{
 			RigidBody rectBody = new(new Rectangle(size), position, isStatic, invMass, restitution, friction);

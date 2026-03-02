@@ -82,7 +82,7 @@ namespace PhysicsElaSim.physics
 
             float depth = isInside ? circleA.Radius + dist : circleA.Radius - dist;
 
-            Console.WriteLine("Circle Vs Rect: normal(" + normal.ToString() + ") contact point("+contactPoint.ToString()+"), depth(" + depth + ")");
+            //Console.WriteLine("Circle Vs Rect: normal(" + normal.ToString() + ") contact point("+contactPoint.ToString()+"), depth(" + depth + ")");
             return new(A, B, normal, [contactPoint], [depth]);
         }
 
@@ -92,15 +92,19 @@ namespace PhysicsElaSim.physics
 
         private static Collision? RectVsRect(RigidBody A, RigidBody B, Rectangle rectA, Rectangle rectB)
         {
-            List<Vector2> VerticesA = rectA.GetVertices(A.Pos,A.Rotation);
-            List<Vector2> VerticesB = rectB.GetVertices(B.Pos,B.Rotation);
+            Vector2[] VerticesA = rectA.GetVertices(A.Pos,A.Rotation);
+            Vector2[] VerticesB = rectB.GetVertices(B.Pos,B.Rotation);
             
-            List<Vector2> axesA = [];
-            axesA.Add(new (MathF.Cos(A.Rotation), MathF.Sin(A.Rotation)));
-            axesA.Add(new (-MathF.Sin(A.Rotation), MathF.Cos(A.Rotation)));
-            List<Vector2> axesB = [];
-            axesB.Add(new (MathF.Cos(B.Rotation), MathF.Sin(B.Rotation)));
-            axesB.Add(new (-MathF.Sin(B.Rotation), MathF.Cos(B.Rotation)));
+            Vector2[] axesA =
+            [
+                new (MathF.Cos(A.Rotation), MathF.Sin(A.Rotation)),
+                new (-MathF.Sin(A.Rotation), MathF.Cos(A.Rotation))
+            ];
+            Vector2[] axesB = 
+            [
+                new (MathF.Cos(B.Rotation), MathF.Sin(B.Rotation)),
+                new (-MathF.Sin(B.Rotation), MathF.Cos(B.Rotation))
+            ];
 
             Vector2 normal = Vector2.Zero;
             float minOverlap = float.MaxValue;
@@ -137,18 +141,18 @@ namespace PhysicsElaSim.physics
 
             if((Vector2.Dot(B.Pos - A.Pos, normal) > 0f) ^ isA) normal = -normal ; //setting sense
             
-            List<Vector2> refVertices = isA ? VerticesA : VerticesB;
-            List<Vector2> incVertices = isA ? VerticesB : VerticesA;
+            Vector2[] refVertices = isA ? VerticesA : VerticesB;
+            Vector2[] incVertices = isA ? VerticesB : VerticesA;
 
             int refIndex = FindMostParallelFaceIndex(normal,refVertices);
             int incIndex = FindMostParallelFaceIndex(-normal, incVertices);
 
             Vector2 refV1 = refVertices[refIndex];
-            Vector2 refV2 = refVertices[(refIndex + 1) % refVertices.Count];
+            Vector2 refV2 = refVertices[(refIndex + 1) % refVertices.Length];
             Vector2 refTangent = (refV2 - refV1).Normalized();
 
             Vector2 incV1 = incVertices[incIndex];
-            Vector2 incV2 = incVertices[(incIndex + 1) % incVertices.Count];
+            Vector2 incV2 = incVertices[(incIndex + 1) % incVertices.Length];
 
             Clip(refV1, refTangent, ref incV1, ref incV2);
             Clip(refV2, -refTangent, ref incV1, ref incV2);
@@ -161,13 +165,13 @@ namespace PhysicsElaSim.physics
             else return new(A,B,isA? -normal:normal, [incV1, incV2], [d1, d2]);
         }
 
-        private static int FindMostParallelFaceIndex(Vector2 normal, List<Vector2> vertices)
+        private static int FindMostParallelFaceIndex(Vector2 normal, Vector2[] vertices)
         { // return index of first vertex of the face. For second vertex use +1 and modulo
             float maxDot = 0f;
             int index = 0;
-            for (int i = 0;i< vertices.Count; i++)
+            for (int i = 0;i< vertices.Length; i++)
             {
-                int j = (i + 1) % vertices.Count;
+                int j = (i + 1) % vertices.Length;
                 Vector2 faceNormal = (vertices[i] - vertices[j]).Rotated90(); //TODO: check if normal is pointing outwards
                 float dot = Vector2.Dot(faceNormal, normal);
                 if(dot < maxDot)
@@ -256,11 +260,11 @@ namespace PhysicsElaSim.physics
             bodyA.Pos += correction * bodyA.InvMass;
             bodyB.Pos -= correction * bodyB.InvMass;
         }
-        private static void ProjectVertices(List<Vector2> vertices, Vector2 normal, out float min, out float max)
+        private static void ProjectVertices(Vector2[] vertices, Vector2 normal, out float min, out float max)
         {
             min = float.MaxValue;
             max = float.MinValue;
-            for (int i = 0; i < vertices.Count; i++)
+            for (int i = 0; i < vertices.Length; i++)
             {
                 float p = Vector2.Dot(normal, vertices[i]);
                 if(p > max) max = p;

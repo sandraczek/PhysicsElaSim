@@ -7,8 +7,32 @@ namespace PhysicsElaSim.physics
     {
         public int Id;
         private static int nextId = 0;
-        public Vector2 Pos;
-        public float Rotation;
+        private Vector2 _pos;
+        public Vector2 Pos
+        {
+            get => _pos;
+            set
+            {
+                if(value != _pos)
+                {
+                    _pos = value;
+                    Shape.MarkDirty();
+                }
+            }
+        }
+        private float _rotation;
+        public float Rotation
+        {
+            get => _rotation;
+            set
+            {
+                if(MathF.Abs(value - _rotation) > 0.0001f)
+                {
+                    _rotation = value;
+                    Shape.MarkDirty();
+                }
+            }
+        }
         public Vector2 Velocity; // todo: add field Vertices (optimize)
         public float AngularVelocity;
         public Vector2 Acceleration;
@@ -55,7 +79,7 @@ namespace PhysicsElaSim.physics
             Velocity += impulse * InvMass;
             AngularVelocity += Vector2.Cross(radiusVector, impulse) * InvInertia;
 
-            Console.WriteLine("Adding Impulse " + impulse.ToString() + " to Entity: " + Id.ToString());
+            //Console.WriteLine("Adding Impulse " + impulse.ToString() + " to Entity: " + Id.ToString());
         }
 
         public void UpdateSleep(float dt, float sleepVelThreshold)
