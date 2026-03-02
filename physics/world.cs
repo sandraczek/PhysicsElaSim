@@ -47,7 +47,7 @@ namespace PhysicsElaSim.physics
                 body.Velocity += body.Acceleration * dt;
                 body.Pos += body.Velocity * dt;
 
-                body.AngularVelocity *=airResistance; // TODO - remove and add real air resistance
+                //body.AngularVelocity *=airResistance; // TODO - remove and add real air resistance
                 body.Rotation += body.AngularVelocity * dt;
 
                 body.UpdateSleep(dt, _sleepVelThreshold);
@@ -76,9 +76,6 @@ namespace PhysicsElaSim.physics
                         if(!body1.IsAwake) body1.WakeUp();
                         if(!body2.IsAwake) body2.WakeUp();
                     }
-
-                    if(body1.IsAwake && body2.IsAwake) 
-                        Console.WriteLine("Collision: " + body1.Id.ToString() + " and " + body2.Id.ToString());
                 }
             }
 

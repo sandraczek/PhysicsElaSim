@@ -64,20 +64,23 @@ namespace PhysicsElaSim.physics
             nextId++;
         }
 
-        public void AddCenterImpulse(Vector2 impulse) {
+        public void AddImpulse(Vector2 impulse) {
             if(IsStatic) return;
             if(impulse == Vector2.Zero) return;
             Velocity += impulse * InvMass;
-            Console.WriteLine("Adding Impulse " + impulse.ToString() + " to Entity: " + Id.ToString());
+            //Console.WriteLine("Adding Impulse " + impulse.ToString() + " to Entity: " + Id.ToString());
         }
         public void AddImpulse(Vector2 impulse, Vector2 contactPoint) {
+
+            Vector2 radiusVector = contactPoint - Pos;
+            AddImpulseLocal(impulse,radiusVector);
+        }
+        public void AddImpulseLocal(Vector2 impulse, Vector2 localContactPoint) {
             if(IsStatic) return;
             if(impulse == Vector2.Zero) return;
-            
-            Vector2 radiusVector = contactPoint - Pos;
 
             Velocity += impulse * InvMass;
-            AngularVelocity += Vector2.Cross(radiusVector, impulse) * InvInertia;
+            AngularVelocity += Vector2.Cross(localContactPoint, impulse) * InvInertia;
 
             //Console.WriteLine("Adding Impulse " + impulse.ToString() + " to Entity: " + Id.ToString());
         }
@@ -93,7 +96,7 @@ namespace PhysicsElaSim.physics
                     IsAwake = false;
                     Velocity = Vector2.Zero;
                     AngularVelocity = 0f;
-                    Console.WriteLine("Going to sleep: " + Id);
+                    //Console.WriteLine("Going to sleep: " + Id);
                 }
             }
             else
@@ -105,7 +108,7 @@ namespace PhysicsElaSim.physics
         {
             if(IsStatic) return;
             sleepTimer = 0f;
-            if(!IsAwake) Console.WriteLine("Waking up: " + Id);
+            //if(!IsAwake) Console.WriteLine("Waking up: " + Id);
             IsAwake = true;
         }
         public Vector2 GetPointVelocity(Vector2 globalPointPos)
