@@ -1,4 +1,6 @@
 
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace PhysicsElaSim.physics
@@ -88,23 +90,47 @@ namespace PhysicsElaSim.physics
     {
         private readonly int _verticeCount;
         private readonly Vector2[] _localVertices;
-        private Vector2[] _globalVertices;
+        private readonly Vector2[] _globalVertices;
 
         public Polygon(Vector2[] vertices)
         {
             _verticeCount = vertices.Length;
             _localVertices = new Vector2[_verticeCount];
-            _globalVertices = new Vector2[_verticeCount];
             Array.Copy(vertices, _localVertices, _verticeCount);
-        }
 
-        public override float GetInertia(float mass)
+            EnsureCounterClockwise();
+            SetCentroid();
+
+            _globalVertices = new Vector2[_verticeCount];
+        }
+        public void EnsureCounterClockwise()
         {
-            if (_verticeCount < 3) return 0;
+            if(_verticeCount < 3) return;
+
+            float area = 0;
+
+            //sum of all of the triangles
+            for (int i = 0; i < _verticeCount; i++)
+            {
+                Vector2 p1 = _localVertices[i];
+                Vector2 p2 = _localVertices[(i + 1) % _verticeCount];
+
+                float cross = Vector2.Cross(p2, p1);
+
+                area += cross;
+            }
+
+            if(area < 0f)
+            {
+                Array.Reverse(_localVertices,0,_verticeCount);
+            }
+        }
+        public void SetCentroid()
+        {
+            if(_verticeCount < 3) return;
 
             float area = 0;
             Vector2 centroid = Vector2.Zero; //center of mass of the polygon
-            float inertia = 0;
 
             //sum of all of the triangles
             for (int i = 0; i < _verticeCount; i++)
@@ -116,8 +142,6 @@ namespace PhysicsElaSim.physics
 
                 area += cross;
                 centroid += (p1 + p2) * cross;
-
-                inertia += (p1.LengthSquared() + Vector2.Dot(p1, p2) + p2.LengthSquared()) * cross;
             }
 
             //check for degenerate polygons
@@ -125,15 +149,41 @@ namespace PhysicsElaSim.physics
 
             area /= 2f;
             centroid *= 1f / (6f * area);
+
+            for (int i = 0; i < _verticeCount; i++)
+            {
+                _localVertices[i] -= centroid;
+            }
+        }
+
+        public override float GetInertia(float mass)
+        {
+            if (_verticeCount < 3) return 0;
+
+            float area = 0;
+            float inertia = 0;
+
+            //sum of all of the triangles
+            for (int i = 0; i < _verticeCount; i++)
+            {
+                Vector2 p1 = _localVertices[i];
+                Vector2 p2 = _localVertices[(i + 1) % _verticeCount];
+
+                float cross = Vector2.Cross(p1, p2);
+
+                area += cross;
+                inertia += (p1.LengthSquared() + Vector2.Dot(p1, p2) + p2.LengthSquared()) * cross;
+            }
+
+            //check for degenerate polygons
+            if (Math.Abs(area) < float.Epsilon) throw new("Area Of The Polygon Should Not Be Zero");
+
+            area /= 2f;
             inertia /= 12f;
 
             //convert area moment to mass moment assuming uniform density
             inertia *= mass / area; 
 
-            //apply parallel axis theorem to shift inertia from (0,0) to the centroid
-            inertia -= mass * centroid.LengthSquared();
-
-            Console.WriteLine(inertia);
             //returning abosute value because cross product could return negative area if the vertices are clockwise
             return Math.Abs(inertia);
         }
@@ -154,5 +204,6 @@ namespace PhysicsElaSim.physics
             if(_isDirty) ResolveDirty(pos,rotation);
             return _globalVertices;
         }
+        public Vector2[] GetLocalVertices() => _localVertices;
     }
 }

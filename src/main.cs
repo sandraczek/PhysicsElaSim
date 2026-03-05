@@ -1,4 +1,5 @@
 using System.Reflection.Metadata;
+using System.Runtime.ExceptionServices;
 using PhysicsElaSim.physics;
 using SFML.Graphics;
 
@@ -31,7 +32,20 @@ class App
         Vector2 floorSize = new(1000f,30f);
 		SpawnRect(floorSize, new Vector2(200, 400), G.Color.White ,true, invMass: 0f, restitution: 0.15f, 0.5f);
 		SpawnBall(50f, new Vector2(100, 100),G.Color.Red, invMass: 0.1f, restitution: 0.9f, friction: 0.2f);
-		SpawnRect(new(60f,6f),new(600f,380f),new(209, 175, 54),true, 0, 1.2f,0f);
+
+		//trampolines
+		SpawnRect(new(60f,6f),new(600f,380f),new(179, 175, 54),true, 0, 1.2f,0f);
+		var jump2 = SpawnRect(new(60f,6f),new(650f,366f),new(179, 175, 54),true, 0, 1.2f,0f);
+		jump2.Rotation = -0.55f;
+		var jump3 = SpawnRect(new(60f,6f),new(550f,366f),new(179, 175, 54),true, 0, 1.2f,0f);
+		jump3.Rotation = 0.55f;
+		SpawnRect(new(6f,120f),new(675f,290f),new(179, 175, 54),true, 0, 1.2f,0f);
+		SpawnRect(new(6f,120f),new(525f,290f),new(179, 175, 54),true, 0, 1.2f,0f);
+		
+		//chest
+		SpawnRect(new(20f,100f), new Vector2(10, 315), new(101,67,33) ,true, invMass: 0f, restitution: 0.15f, 0.5f);
+		SpawnRect(new(200f,20f), new Vector2(100, 375), new(101,67,33) ,true, invMass: 0f, restitution: 0.15f, 0.5f);
+		SpawnRect(new(20f,100f), new Vector2(190, 315), new(101,67,33) ,true, invMass: 0f, restitution: 0.15f, 0.5f);
 
 		float fixedDtAccumulator = 0f;
 		int fpsCounter = 0;
@@ -127,7 +141,7 @@ class App
 			if (e.Code == W.Keyboard.Key.R)
 			{
 				S.Vector2f worldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
-				SpawnRect(new(10f,16f),MathP.ToP(worldMousePos), new(113, 173, 201));
+				SpawnRect(new(10f,16f),MathP.ToP(worldMousePos), new(113, 153, 241));
 			}
 
 			if (e.Code == W.Keyboard.Key.D)
@@ -162,22 +176,52 @@ class App
 				var rect = SpawnRect(size,worldMousePos, new(113, 173, 201));
 				rect.AddImpulseLocal(Vector2.Right * spawnImpulse + Vector2.Up * spawnImpulse, new(-15f,-20f));
 			}
+			
 			if (e.Code == W.Keyboard.Key.P)
 			{
 				Vector2[] vertices =
 				[
-					new(50f, 0f),     // Right
-					new(35f, 35f),    // Top-Right
-					new(0f, 50f),     // Top
-					new(-35f, 35f),   // Top-Left
-					new(-50f, 0f),    // Left
-					new(-30f, -40f),  // Bottom-Left
-					new(20f, -45f)    // Bottom-Right
+					new(-7f, -8f), // 1. Lewy dół
+					new(8f, -5f),  // 2. Prawy dół (pod lekkim skosem)
+					new(10f, 8f),   // 3. Skrajny prawy punkt
+					new(3f, 10f),    // 4. Górny wierzchołek
+					new(-8f, 5f)
 				];
 				S.Vector2f SFworldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
 				Vector2 worldMousePos = MathP.ToP(SFworldMousePos);
-				var heptagon = SpawnPolygon(vertices, worldMousePos, new(110, 158, 47));
-				heptagon.AddImpulseLocal(Vector2.Right * spawnImpulse + Vector2.Up * spawnImpulse, new(-35,-35));
+				var ngon = SpawnPolygon(vertices, worldMousePos, new(110, 158, 47), false, 1, 0.85f, 0.4f);
+				//ngon.AddImpulseLocal(Vector2.Right * spawnImpulse + Vector2.Up * spawnImpulse, new(-35,-35));
+			}
+			if (e.Code == W.Keyboard.Key.O)
+			{
+				Vector2[] vertices =
+				[
+					new(-4f, 8f),  // 1. Lewy górny płaski róg
+					new(-8f, 2f),  // 2. Lewy skrajny (najszerszy punkt)
+					new(0f, -8f),  // 3. Dolny ostry szpic
+					new(8f, 2f),   // 4. Prawy skrajny (najszerszy punkt)
+					new(4f, 8f)
+				];
+				S.Vector2f SFworldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
+				Vector2 worldMousePos = MathP.ToP(SFworldMousePos);
+				var diamond = SpawnPolygon(vertices, worldMousePos, new(154,197,219));
+				//diamond.AddImpulseLocal(Vector2.Right * spawnImpulse + Vector2.Up * spawnImpulse, new(-35,-35));
+			}
+			if (e.Code == W.Keyboard.Key.I)
+			{
+				Vector2[] vertices =
+				[
+					new(-4f, -3f),   // 1. Lewy górny płaski rdzeń (początek górnej krawędzi)
+					new(-8f, -2f),   // 2. Lewe górne ścięcie (fazowanie)
+					new(-9f, 6f), // 3. Lewy dolny róg (najszerszy punkt na dole)
+					new(9f, 6f),  // 4. Prawy dolny róg (najszerszy punkt na dole)
+					new(8f, -2f),    // 5. Prawe górne ścięcie (fazowanie)
+					new(4f, -3f)
+				];
+				S.Vector2f SFworldMousePos = window.MapPixelToCoords(W.Mouse.GetPosition(window));
+				Vector2 worldMousePos = MathP.ToP(SFworldMousePos);
+				var gold = SpawnPolygon(vertices, worldMousePos, new(212, 175, 55));
+				//gold.AddImpulseLocal(Vector2.Right * spawnImpulse + Vector2.Up * spawnImpulse, new(-35,-35));
 			}
 		}
 		RigidBody SpawnBall(
@@ -214,18 +258,18 @@ class App
 			float friction = 0.4f
 			)
 		{
-			RigidBody rectBody = new(new Rectangle(size), position, isStatic, invMass, restitution, friction);
-			world.Bodies.Add(rectBody.Id, rectBody);
-			G.RectangleShape rectShape = new(MathP.ToSF(size))
-			{
-				FillColor = color,
-				OutlineColor = G.Color.Black,
-				OutlineThickness = 0f,
-				Origin = MathP.ToSF(size) * 0.5f
-			};
-			Shapes.Add(rectBody.Id, rectShape);
+			float halfWidth = size.X * 0.5f;
+			float halfHeight = size.Y * 0.5f;
+			Vector2[] vertices = 
+			[
+				new Vector2(halfWidth, -halfHeight),
+				new Vector2(-halfWidth, -halfHeight),
+				new Vector2(-halfWidth, halfHeight),
+				new Vector2(halfWidth, halfHeight),
 
-			return rectBody;
+			];
+
+			return SpawnPolygon(vertices, position, color, isStatic, invMass, restitution, friction);
 		}
 
 		RigidBody SpawnPolygon(
@@ -234,11 +278,12 @@ class App
 			G.Color color, 
 			bool isStatic = false,
 			float invMass = 1f, 
-			float restitution = 0.2f, 
+			float restitution = 0.3f, 
 			float friction = 0.4f
 			)
 		{
-			RigidBody polygonBody = new(new Polygon(vertices), position, isStatic, invMass, restitution, friction);
+			var poly = new Polygon(vertices);
+			RigidBody polygonBody = new(poly, position, isStatic, invMass, restitution, friction);
 			world.Bodies.Add(polygonBody.Id, polygonBody);
 			
 			G.ConvexShape convexShape = new((uint)vertices.Length)
@@ -248,9 +293,12 @@ class App
 				OutlineThickness = 0f,
 				Origin = new(0f, 0f)
 			};
+
+			var centeredVertices = poly.GetLocalVertices();
+
 			for (uint i = 0; i < (uint)vertices.Length; i++)
 			{
-				convexShape.SetPoint(i, new(vertices[i].X, vertices[i].Y));
+				convexShape.SetPoint(i, MathP.ToSF(centeredVertices[i]));
 			}
 
 			Shapes.Add(polygonBody.Id, convexShape);

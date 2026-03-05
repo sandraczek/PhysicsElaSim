@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Numerics;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -21,6 +22,7 @@ namespace PhysicsElaSim.physics
                 (Circle cA, Rectangle rB) => CircleVsRect(a, b, cA, rB),
                 (Rectangle rA, Circle cB) => RectVsCircle(a, b, rA, cB),
                 (Rectangle rA, Rectangle rB) => RectVsRect(a, b, rA, rB),
+                (Polygon pA, Polygon pB) => PolygonVsPolygon(a, b, pA, pB),
                 _ => null
             };
         }
@@ -164,17 +166,85 @@ namespace PhysicsElaSim.physics
             else if(d2 < contactPointTolerance) return new(A,B,isA? -normal:normal, [incV1], [d1]);
             else return new(A,B,isA? -normal:normal, [incV1, incV2], [d1, d2]);
         }
+        private static Collision? PolygonVsPolygon(RigidBody A, RigidBody B, Polygon polyA, Polygon polyB)
+        {
+            Vector2[] VerticesA = polyA.GetVertices(A.Pos,A.Rotation);
+            //int lenA = VerticesA.Length;
+            Vector2[] VerticesB = polyB.GetVertices(B.Pos,B.Rotation);
+            int lenB = VerticesB.Length;
 
+            Vector2 normal = Vector2.Zero;
+            float minOverlap = float.MaxValue;
+            bool isA = true;
+            
+            bool CheckAxes(Vector2[] vertices, bool isA, ref Vector2 currentNormal, ref float currentMinOverlap, ref bool currentIsA)
+            {
+                int len = vertices.Length;
+                for (int i = 0; i < len; i++)
+                {
+                    int j = (i + 1) % len;
+                    Vector2 axis = (vertices[j] - vertices[i]).Rotated90().Normalized();
+
+                    ProjectVertices(VerticesA, axis, out float minA, out float maxA);
+                    ProjectVertices(VerticesB, axis, out float minB, out float maxB);
+
+                    float overlap = MathF.Min(maxB,maxA) - MathF.Max(minA,minB);
+                    if(overlap < 0f) return false;
+                    if(overlap < minOverlap)
+                    {
+                        currentMinOverlap = overlap;
+                        currentNormal = axis;
+                        currentIsA = isA;
+                    }
+                }
+                return true;
+            }
+
+            if (!CheckAxes(VerticesA, true, ref normal, ref minOverlap, ref isA)) return null;
+            if (!CheckAxes(VerticesB, false, ref normal, ref minOverlap, ref isA)) return null;
+
+            if (isA) //setting sense
+            {
+                if (Vector2.Dot(B.Pos - A.Pos, normal) < 0f) normal = -normal;
+            }
+            else 
+            {
+                if (Vector2.Dot(A.Pos - B.Pos, normal) < 0f) normal = -normal;
+            }
+            
+            Vector2[] refVertices = isA ? VerticesA : VerticesB;
+            Vector2[] incVertices = isA ? VerticesB : VerticesA;
+
+            int refIndex = FindMostParallelFaceIndex(normal,refVertices);
+            int incIndex = FindMostParallelFaceIndex(-normal, incVertices);
+
+            Vector2 refV1 = refVertices[refIndex];
+            Vector2 refV2 = refVertices[(refIndex + 1) % refVertices.Length];
+            Vector2 refTangent = (refV2 - refV1).Normalized();
+
+            Vector2 incV1 = incVertices[incIndex];
+            Vector2 incV2 = incVertices[(incIndex + 1) % incVertices.Length];
+
+            Clip(refV1, refTangent, ref incV1, ref incV2);
+            Clip(refV2, -refTangent, ref incV1, ref incV2);
+
+            float d1 = Vector2.Dot(refV1 - incV1, normal);
+            float d2 = Vector2.Dot(refV1 - incV2, normal);
+            
+            if(d1 < contactPointTolerance) return new(A,B,isA? -normal:normal, [incV2], [d2]);
+            else if(d2 < contactPointTolerance) return new(A,B,isA? -normal:normal, [incV1], [d1]);
+            else return new(A,B,isA? -normal:normal, [incV1, incV2], [d1, d2]);
+        }
         private static int FindMostParallelFaceIndex(Vector2 normal, Vector2[] vertices)
         { // return index of first vertex of the face. For second vertex use +1 and modulo
-            float maxDot = 0f;
+            float maxDot = float.MinValue;
             int index = 0;
-            for (int i = 0;i< vertices.Length; i++)
+            for (int i = 0; i < vertices.Length; i++)
             {
                 int j = (i + 1) % vertices.Length;
-                Vector2 faceNormal = (vertices[i] - vertices[j]).Rotated90(); //TODO: check if normal is pointing outwards
+                Vector2 faceNormal = (vertices[j] - vertices[i]).Rotated90(); //TODO: check if normal is pointing outwards
                 float dot = Vector2.Dot(faceNormal, normal);
-                if(dot < maxDot)
+                if(dot > maxDot)
                 {
                     maxDot = dot;
                     index = i;
