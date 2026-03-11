@@ -6,7 +6,7 @@ namespace PhysicsElaSim.physics
     class World 
     {
         private readonly Vector2 GravityAcceleration;
-        private readonly float _gravityMultiplier = 5f;
+        private readonly float _gravityMultiplier = 1f;
         private readonly int _velCorrectionNum = 20;
         private readonly int _posCorrectionNum = 3;
         public Dictionary<int,RigidBody> Bodies;

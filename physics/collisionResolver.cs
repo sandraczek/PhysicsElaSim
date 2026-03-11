@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace PhysicsElaSim.physics
 {
@@ -19,9 +20,8 @@ namespace PhysicsElaSim.physics
             return (a.Shape, b.Shape) switch
             {
                 (Circle cA, Circle cB) => CircleVsCircle(a, b, cA, cB),
-                (Circle cA, Rectangle rB) => CircleVsRect(a, b, cA, rB),
-                (Rectangle rA, Circle cB) => RectVsCircle(a, b, rA, cB),
-                (Rectangle rA, Rectangle rB) => RectVsRect(a, b, rA, rB),
+                (Circle cA, Polygon pB) => CircleVsPolygon(a, b, cA, pB),
+                (Polygon pA, Circle cB) => PolygonVsCircle(a, b, pA, cB),
                 (Polygon pA, Polygon pB) => PolygonVsPolygon(a, b, pA, pB),
                 _ => null
             };
@@ -37,141 +37,65 @@ namespace PhysicsElaSim.physics
             return new(A, B, normal, [contactPoint], [depth]);
         }
 
-        private static Collision? CircleVsRect(RigidBody A, RigidBody B, Circle circleA, Rectangle rectB) {
-            //calculating circle's position relative to rectangle's orientation
-            Vector2 d = A.Pos - B.Pos;
-            Vector2 posRel = Vector2.Rotate(d, -B.Rotation);
-
-            //clamping in relative coordinates
-            float halfW = rectB.Width * 0.5f;
-            float halfH = rectB.Height * 0.5f;
-            Vector2 contactPointRel = new(Math.Clamp(posRel.X, -halfW, halfW), Math.Clamp(posRel.Y, -halfH, halfH));
-            Vector2 normalVecRel = posRel - contactPointRel;
-
-            float dist = normalVecRel.Length();
-            Vector2 normalRel;
-            //if the circle center is inside the rectangle we need to find the closest side to push it out
-            //bool isInside = dist == 0;
-            bool isInside = posRel.X > -halfW && posRel.X < halfW && posRel.Y > -halfH && posRel.Y < halfH;
-            if (isInside)
-            {
-                float overlapX = halfW - MathF.Abs(posRel.X);
-                float overlapY = halfH - MathF.Abs(posRel.Y);
-
-                if (overlapX < overlapY) //left or right side is the closest
-                {
-                    normalRel = new(posRel.X > 0 ? 1 : -1, 0); //normal points from the side to the circle centre
-                    contactPointRel = new(posRel.X > 0 ? halfW : -halfW, posRel.Y);
-                    dist = overlapX;
-                }   
-                else //top or bottom side is the closest
-                {
-                    normalRel = new(0, posRel.Y > 0 ? 1 : -1);
-                    contactPointRel = new(posRel.X, posRel.Y > 0 ? halfH : -halfH);
-                    dist = overlapY;
-                }
-            }
-            else
-            {
-                if (dist > circleA.Radius) return null;
-                normalRel = normalVecRel.Normalized();
-            }
-
-
-            //transforming back to normal world coordinates
-            Vector2 normal = Vector2.Rotate(normalRel, B.Rotation);
-            Vector2 contactPoint = Vector2.Rotate(contactPointRel, B.Rotation) + B.Pos;
-
-            float depth = isInside ? circleA.Radius + dist : circleA.Radius - dist;
-
-            //Console.WriteLine("Circle Vs Rect: normal(" + normal.ToString() + ") contact point("+contactPoint.ToString()+"), depth(" + depth + ")");
-            return new(A, B, normal, [contactPoint], [depth]);
-        }
-
-        private static Collision? RectVsCircle(RigidBody A, RigidBody B, Rectangle rectA, Circle circleB)
-            => CircleVsRect(B, A, circleB, rectA);
-
-
-        private static Collision? RectVsRect(RigidBody A, RigidBody B, Rectangle rectA, Rectangle rectB)
+        private static Collision? PolygonVsCircle(RigidBody bodyA, RigidBody bodyB, Polygon polyA, Circle circleB)
         {
-            Vector2[] VerticesA = rectA.GetVertices(A.Pos,A.Rotation);
-            Vector2[] VerticesB = rectB.GetVertices(B.Pos,B.Rotation);
-            
-            Vector2[] axesA =
-            [
-                new (MathF.Cos(A.Rotation), MathF.Sin(A.Rotation)),
-                new (-MathF.Sin(A.Rotation), MathF.Cos(A.Rotation))
-            ];
-            Vector2[] axesB = 
-            [
-                new (MathF.Cos(B.Rotation), MathF.Sin(B.Rotation)),
-                new (-MathF.Sin(B.Rotation), MathF.Cos(B.Rotation))
-            ];
+            Vector2[] verticesA = polyA.GetVertices(bodyA.Pos,bodyA.Rotation);
 
             Vector2 normal = Vector2.Zero;
             float minOverlap = float.MaxValue;
-            bool isA = true;
 
-            foreach (Vector2 axis in axesA)
+            bool CheckAxis(Vector2 axis, ref Vector2 currentNormal, ref float currentMinOverlap)
             {
-                ProjectVertices(VerticesA, axis, out float minA, out float maxA);
-                ProjectVertices(VerticesB, axis, out float minB, out float maxB);
+                ProjectVertices(verticesA, axis, out float minA, out float maxA);
+                float center = Vector2.Dot(axis, bodyB.Pos);
+                float minB = center - circleB.Radius;
+                float maxB = center + circleB.Radius;
 
                 float overlap = MathF.Min(maxB,maxA) - MathF.Max(minA,minB);
-                if(overlap < 0f) return null;
-                if(overlap < minOverlap)
+                if(overlap < 0f) return false;
+                if(overlap < currentMinOverlap)
                 {
-                    minOverlap = overlap;
-                    normal = axis;
-                    isA = true;
+                    currentMinOverlap = overlap;
+                    currentNormal = axis;
                 }
+                return true;
             }
-            foreach (Vector2 axis in axesB)
+            int lenA = verticesA.Length;
+            for (int i = 0; i < lenA; i++)
             {
-                ProjectVertices(VerticesA, axis, out float minA, out float maxA);
-                ProjectVertices(VerticesB, axis, out float minB, out float maxB);
-
-                float overlap = MathF.Min(maxB,maxA) - MathF.Max(minA,minB);
-                if(overlap < 0f) return null;
-                if(overlap < minOverlap)
-                {
-                    minOverlap = overlap;
-                    normal = axis;
-                    isA = false;
-                }
+                int j = (i + 1) % lenA;
+                Vector2 axis = (verticesA[j] - verticesA[i]).Rotated90().Normalized();
+                if(!CheckAxis(axis, ref normal, ref minOverlap)) return null;
             }
 
-            if((Vector2.Dot(B.Pos - A.Pos, normal) > 0f) ^ isA) normal = -normal ; //setting sense
+            Vector2 closestVertex = Vector2.Zero;
+            float closestVertexLenghtSq = float.MaxValue;
+            foreach (var vertex in verticesA)
+            {
+                var currentLengthSq = (vertex - bodyB.Pos).LengthSquared();
+                if(currentLengthSq < closestVertexLenghtSq){
+                    closestVertex = vertex;
+                    closestVertexLenghtSq = currentLengthSq;
+                }
+            }
+            Vector2 voronoiaAxis = (closestVertex - bodyB.Pos).Normalized();
+            if(!CheckAxis(voronoiaAxis, ref normal, ref minOverlap)) return null;
+
+            if(Vector2.Dot(normal, bodyA.Pos - bodyB.Pos) < 0f)
+                normal = -normal;
             
-            Vector2[] refVertices = isA ? VerticesA : VerticesB;
-            Vector2[] incVertices = isA ? VerticesB : VerticesA;
+            Vector2 contactPoint = bodyB.Pos + normal * circleB.Radius;
 
-            int refIndex = FindMostParallelFaceIndex(normal,refVertices);
-            int incIndex = FindMostParallelFaceIndex(-normal, incVertices);
-
-            Vector2 refV1 = refVertices[refIndex];
-            Vector2 refV2 = refVertices[(refIndex + 1) % refVertices.Length];
-            Vector2 refTangent = (refV2 - refV1).Normalized();
-
-            Vector2 incV1 = incVertices[incIndex];
-            Vector2 incV2 = incVertices[(incIndex + 1) % incVertices.Length];
-
-            Clip(refV1, refTangent, ref incV1, ref incV2);
-            Clip(refV2, -refTangent, ref incV1, ref incV2);
-
-            float d1 = Vector2.Dot(refV1 - incV1, normal);
-            float d2 = Vector2.Dot(refV1 - incV2, normal);
-            
-            if(d1 < contactPointTolerance) return new(A,B,isA? -normal:normal, [incV2], [d2]);
-            else if(d2 < contactPointTolerance) return new(A,B,isA? -normal:normal, [incV1], [d1]);
-            else return new(A,B,isA? -normal:normal, [incV1, incV2], [d1, d2]);
+            return new(bodyA,bodyB,normal,[contactPoint], [minOverlap]);
         }
-        private static Collision? PolygonVsPolygon(RigidBody A, RigidBody B, Polygon polyA, Polygon polyB)
+
+        private static Collision? CircleVsPolygon(RigidBody A, RigidBody B, Circle circleA, Polygon polyB)
+            => PolygonVsCircle(B, A, polyB, circleA);
+
+        private static Collision? PolygonVsPolygon(RigidBody bodyA, RigidBody bodyB, Polygon polyA, Polygon polyB)
         {
-            Vector2[] VerticesA = polyA.GetVertices(A.Pos,A.Rotation);
-            //int lenA = VerticesA.Length;
-            Vector2[] VerticesB = polyB.GetVertices(B.Pos,B.Rotation);
-            int lenB = VerticesB.Length;
+            Vector2[] verticesA = polyA.GetVertices(bodyA.Pos,bodyA.Rotation);
+            Vector2[] verticesB = polyB.GetVertices(bodyB.Pos,bodyB.Rotation);
 
             Vector2 normal = Vector2.Zero;
             float minOverlap = float.MaxValue;
@@ -185,8 +109,8 @@ namespace PhysicsElaSim.physics
                     int j = (i + 1) % len;
                     Vector2 axis = (vertices[j] - vertices[i]).Rotated90().Normalized();
 
-                    ProjectVertices(VerticesA, axis, out float minA, out float maxA);
-                    ProjectVertices(VerticesB, axis, out float minB, out float maxB);
+                    ProjectVertices(verticesA, axis, out float minA, out float maxA);
+                    ProjectVertices(verticesB, axis, out float minB, out float maxB);
 
                     float overlap = MathF.Min(maxB,maxA) - MathF.Max(minA,minB);
                     if(overlap < 0f) return false;
@@ -200,20 +124,20 @@ namespace PhysicsElaSim.physics
                 return true;
             }
 
-            if (!CheckAxes(VerticesA, true, ref normal, ref minOverlap, ref isA)) return null;
-            if (!CheckAxes(VerticesB, false, ref normal, ref minOverlap, ref isA)) return null;
+            if (!CheckAxes(verticesA, true, ref normal, ref minOverlap, ref isA)) return null;
+            if (!CheckAxes(verticesB, false, ref normal, ref minOverlap, ref isA)) return null;
 
             if (isA) //setting sense
             {
-                if (Vector2.Dot(B.Pos - A.Pos, normal) < 0f) normal = -normal;
+                if (Vector2.Dot(bodyB.Pos - bodyA.Pos, normal) < 0f) normal = -normal;
             }
             else 
             {
-                if (Vector2.Dot(A.Pos - B.Pos, normal) < 0f) normal = -normal;
+                if (Vector2.Dot(bodyA.Pos - bodyB.Pos, normal) < 0f) normal = -normal;
             }
             
-            Vector2[] refVertices = isA ? VerticesA : VerticesB;
-            Vector2[] incVertices = isA ? VerticesB : VerticesA;
+            Vector2[] refVertices = isA ? verticesA : verticesB;
+            Vector2[] incVertices = isA ? verticesB : verticesA;
 
             int refIndex = FindMostParallelFaceIndex(normal,refVertices);
             int incIndex = FindMostParallelFaceIndex(-normal, incVertices);
@@ -231,9 +155,9 @@ namespace PhysicsElaSim.physics
             float d1 = Vector2.Dot(refV1 - incV1, normal);
             float d2 = Vector2.Dot(refV1 - incV2, normal);
             
-            if(d1 < contactPointTolerance) return new(A,B,isA? -normal:normal, [incV2], [d2]);
-            else if(d2 < contactPointTolerance) return new(A,B,isA? -normal:normal, [incV1], [d1]);
-            else return new(A,B,isA? -normal:normal, [incV1, incV2], [d1, d2]);
+            if(d1 < contactPointTolerance) return new(bodyA,bodyB,isA? -normal:normal, [incV2], [d2]);
+            else if(d2 < contactPointTolerance) return new(bodyA,bodyB,isA? -normal:normal, [incV1], [d1]);
+            else return new(bodyA,bodyB,isA? -normal:normal, [incV1, incV2], [d1, d2]);
         }
         private static int FindMostParallelFaceIndex(Vector2 normal, Vector2[] vertices)
         { // return index of first vertex of the face. For second vertex use +1 and modulo

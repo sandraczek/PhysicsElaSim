@@ -30,65 +30,10 @@ namespace PhysicsElaSim.physics
         }
     }
 
-    public class Rectangle : Shape
-    {
-        public float Width;
-        public float Height;
-        private readonly Vector2[] _localVertices;
-        private Vector2[] _globalVertices;
-
-        public Rectangle(float width, float height)
-        {
-            Width = width;
-            Height = height;
-            _localVertices = new Vector2[4];
-            _globalVertices = new Vector2[4];
-            SetLocalVertices();
-        }
-        public Rectangle(Vector2 size)
-        {
-            Width = size.X;
-            Height = size.Y;
-            _localVertices = new Vector2[4];
-            _globalVertices = new Vector2[4];
-            SetLocalVertices();
-        }
-        private void SetLocalVertices()
-        {
-            _localVertices[0] = new Vector2(0.5f * Width, -0.5f * Height);
-            _localVertices[1] = new Vector2(-0.5f * Width, -0.5f * Height);
-            _localVertices[2] = new Vector2(-0.5f * Width, 0.5f * Height);
-            _localVertices[3] = new Vector2(0.5f * Width, 0.5f * Height);
-        }
-
-        public override float GetInertia(float mass)
-        {
-            float inertia = (1f / 12f) * mass * (Width * Width + Height * Height);
-            Console.WriteLine(inertia);
-            return inertia;
-        }
-        private void ResolveDirty(Vector2 pos, float rotation)
-        {
-            for(int i = 0; i<4; i++)
-            {
-                var local = _localVertices[i];
-                _globalVertices[i] = pos + new Vector2(
-                    local.X * MathF.Cos(rotation) - local.Y * MathF.Sin(rotation),
-                    local.X * MathF.Sin(rotation) + local.Y * MathF.Cos(rotation)
-                );
-            }
-            _isDirty = false;
-        }
-        public Vector2[] GetVertices(Vector2 pos, float rotation)
-        {
-            if(_isDirty) ResolveDirty(pos,rotation);
-            return _globalVertices;
-        }
-    }
-
     public class Polygon : Shape
     {
         private readonly int _verticeCount;
+        public int VerticeCount => _verticeCount;
         private readonly Vector2[] _localVertices;
         private readonly Vector2[] _globalVertices;
 
