@@ -3,10 +3,8 @@ using System.Diagnostics.Contracts;
 
 namespace PhysicsElaSim.physics
 {
-        public class RigidBody
+        public class RigidBody: Body
     {
-        public int Id;
-        private static int nextId = 0;
         private Vector2 _pos;
         public Vector2 Pos
         {
@@ -47,7 +45,7 @@ namespace PhysicsElaSim.physics
         private const float timeToSleep = 1f;
         private const float sleepAngVelThreshold = 0.01f;
 
-        public RigidBody(Shape shape, Vector2 pos, bool isStatic = false,float invMass = 1.0f, float restitution = 0.25f, float friction = 0.25f)
+        public RigidBody(Shape shape, Vector2 pos, bool isStatic = false,float invMass = 1.0f, float restitution = 0.25f, float friction = 0.25f) :base()
         {
             Shape = shape;
             Pos = pos;
@@ -58,10 +56,6 @@ namespace PhysicsElaSim.physics
             Friction = friction;
             IsStatic = isStatic;
             InvInertia = invMass == 0f? 0f : 1f / shape.GetInertia(1f/invMass);
-
-            Id = nextId;
-            if(nextId == int.MaxValue) throw new("Id Limit Reached.");
-            nextId++;
         }
 
         public void AddImpulse(Vector2 impulse) {

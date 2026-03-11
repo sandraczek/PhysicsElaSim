@@ -36,7 +36,6 @@ namespace PhysicsElaSim.physics
         {
             // sleep threshold is how small velocities must be for an object to sleep; max with 0.05 so that when gravity is 0 they still sleep
             _sleepVelThreshold = Math.Max(GravityAcceleration.Length() * _gravityMultiplier * _sleepVelThresholdBias * dt, 0.05f);
-
             foreach (RigidBody body in Bodies.Values) {
 
                 if(body.IsStatic) continue;
